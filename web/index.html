@@ -135,11 +135,14 @@ details summary{cursor:pointer;color:var(--indigo-2);font-weight:600}
 footer{max-width:1440px;margin:0 auto;padding:6px 20px 28px;color:var(--mute);font-size:13px}
 
 @media(min-width:1180px){
-  .split{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:18px;align-items:start}
+  .split{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start}
+  .split td,.split th{padding-left:8px;padding-right:8px}
+  .split .nm{max-width:165px}
   #sdetail{position:sticky;top:60px;max-height:calc(100vh - 72px);overflow:auto;overscroll-behavior:contain;border-radius:var(--r)}
   #sdetail .grid2{grid-template-columns:1fr}
 }
-@media(min-width:1180px) and (max-width:1599px){.hide-m{display:none}}
+@media(min-width:1180px){.hide-m{display:none}}
+@media(min-width:1180px) and (max-width:1399px){.hide-l{display:none}}
 @media(max-width:640px){main{padding:12px}.mast-in{padding:14px 14px 0}.grid2{grid-template-columns:1fr}.hide-s{display:none}
   .board{display:flex;overflow-x:auto;gap:22px;scrollbar-width:none}.board>div{flex:none;padding-right:0}.board b{font-size:22px}.ask{font-size:18px}.ask select.univ{font-size:19px}.ask #q{margin-left:0;width:100%}.panel{padding:14px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
@@ -404,7 +407,7 @@ function renderScan() {
        about what chance gives (33%), and did no better than Watch: <b>no proven edge yet</b>. <b>Avoid</b> stocks did worse than average: use it to skip weak stocks.
        Treat Buy as a plan (entry, stop, size), not a prediction. Details in the Evidence tab.</div>`
     : shortNote(st);
-  $("#scanhead").innerHTML = `<tr><th class="r">#</th>${COLS.map(c => `<th class="sort ${c[3] ? "r" : ""} ${SORT.key === c[0] ? "sorted" : ""} ${["ret_1m", "rs"].includes(c[0]) ? "hide-s hide-m" : c[0] === "change_pct" ? "hide-s" : ""}" data-k="${c[0]}">${c[1]}${SORT.key === c[0] ? (SORT.dir < 0 ? " ▾" : " ▴") : ""}</th>`).join("")}</tr>`;
+  $("#scanhead").innerHTML = `<tr><th class="r">#</th>${COLS.map(c => `<th class="sort ${c[3] ? "r" : ""} ${SORT.key === c[0] ? "sorted" : ""} ${["ret_1m", "rs"].includes(c[0]) ? "hide-s hide-m" : c[0] === "change_pct" ? "hide-s" : c[0] === "ret_3m" ? "hide-l" : ""}" data-k="${c[0]}">${c[1]}${SORT.key === c[0] ? (SORT.dir < 0 ? " ▾" : " ▴") : ""}</th>`).join("")}</tr>`;
   document.querySelectorAll("#scanhead th.sort").forEach(th => th.onclick = () => { SORT = {key: th.dataset.k, dir: SORT.key === th.dataset.k ? -SORT.dir : -1}; renderScan(); });
   const rows = scanRows();
   $("#shown").textContent = rows.length === st.length ? "" : `Showing ${rows.length} of ${st.length}`;
@@ -412,7 +415,7 @@ function renderScan() {
     const s = r.swing, t = r.short, warnBuy = isBuy(r) && resultsInHold(r);
     return `<tr data-code="${esc(r.code)}" class="${SEL === r.code ? "sel" : ""}"><td class="r mute">${i + 1}</td>
       <td><span class="tk">${esc(r.code)}</span>${r.stale ? ' <span class="chip warn" title="price data older than the latest session">old data</span>' : ""}<span class="nm" title="${esc(r.name)}">${esc(r.name)}</span></td>
-      <td class="r">${n(r.price)}</td><td class="r hide-s">${pct(r.change_pct, 2)}</td><td class="r hide-s hide-m">${pct(r.ret_1m)}</td><td class="r">${pct(r.ret_3m)}</td>
+      <td class="r">${n(r.price)}</td><td class="r hide-s">${pct(r.change_pct, 2)}</td><td class="r hide-s hide-m">${pct(r.ret_1m)}</td><td class="r hide-l">${pct(r.ret_3m)}</td>
       <td class="r nw"><b>${s.score ?? "–"}</b> <span class="pill ${sigCls(s.signal)}">${esc(s.signal)}</span>${s.setup && s.setup !== "none" ? `<span class="sub">${esc(s.setup.replace("_", " "))}</span>` : ""}</td>
       <td class="r nw"><b>${t.score}</b> <span class="pill ${sigCls(t.label)}">${esc(t.label)}</span></td>
       <td class="r hide-s hide-m">${s.rs_3m == null ? "–" : `<span class="${cls(s.rs_3m)}">${s.rs_3m > 0 ? "+" : ""}${n(s.rs_3m, 1)}</span>`}</td>
@@ -436,7 +439,8 @@ function renderStock(r) {
       <div class="top dhead"><div><h2><span class="tk" style="font-size:inherit">${esc(r.code)}</span></h2>
         <div>${esc(r.name)} <span class="mute">in ${esc(r.industry)}</span></div></div>
         <div style="text-align:right"><div class="px">${inr(r.price)}</div>${pct(r.change_pct, 2)} <span class="small mute">on ${esc(r.data_date)}</span></div></div>
-      <div class="row small" style="margin-top:8px;gap:6px 16px"><span>1 week ${pct(r.ret_1w)}</span><span>6 months ${pct(r.ret_6m)}</span><span>1 year ${pct(r.ret_1y)}</span>
+      <div class="row small" style="margin-top:8px;gap:6px 16px"><span>1 week ${pct(r.ret_1w)}</span><span>1 month ${pct(r.ret_1m)}</span><span>3 months ${pct(r.ret_3m)}</span><span>6 months ${pct(r.ret_6m)}</span><span>1 year ${pct(r.ret_1y)}</span>
+        <span>vs Nifty, 3 months ${r.swing.rs_3m == null ? "–" : `<span class="${cls(r.swing.rs_3m)}">${r.swing.rs_3m > 0 ? "+" : ""}${n(r.swing.rs_3m, 1)} pts</span>`}</span>
         <span class="mute">₹${n(r.traded_value_cr, 0)} Cr traded a day</span></div>
       <div id="schart" class="chart" style="margin-top:8px"></div><div class="key">${chartKey(sv)}</div>
       ${ai ? `<div class="small" style="margin-top:6px">A full ${ai.is_fallback ? "technical" : "AI"} analysis of this stock is in the <a href="#" id="toai">Watchlist tab</a>.</div>` : ""}</div>

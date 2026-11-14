@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: '0 13 * * 1-5'     # 13:00 UTC = 18:30 IST, Mon-Fri (after NSE publishes the day's files)
   workflow_dispatch:           # "Run workflow" button on the Actions tab: rebuild now
+  push:
+    branches: [main]           # a code change goes live straight away
+    paths-ignore: ['**.md', 'research/**', 'tests/**']
 
 permissions:
   contents: read
