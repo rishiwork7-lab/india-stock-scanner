@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>India Stock Scanner</title>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" integrity="sha384-OK7vELvjHdhUFi31JYioPIcRHTROLdcDa6ZsNWgvgLaKj+9JqhU0Ad8g4wz3CXjA" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Latin:wdth,wght@75..125,300..800&display=swap" rel="stylesheet">
+<style>
+/* Indigo (neel) for structure, marigold (genda) only for selection and focus; green/red only for prices. Type: Anek Latin
+   (Ek Type), condensed for tickers and index levels, normal width for reading. */
+:root{color-scheme:light;
+  --indigo:#1E2756;--indigo-2:#2D3A78;--indigo-ink:#141A3C;--marigold:#F0A830;--marigold-soft:#FFF4DE;
+  --bg:#F4F5FA;--card:#FFFFFF;--ink:#1A1F36;--mute:#5F6783;--line:#DCE0EC;--line-2:#ECEEF5;--chip:#E9EBF5;
+  --up:#12784A;--upbg:#E2F3E9;--down:#C23A30;--downbg:#FBE8E6;--warn:#8F5300;--warnbg:#FFF1D6;--watch:#4D5682;--watchbg:#E9EBF5;
+  --r:10px;--f:"Anek Latin",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--f);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--marigold);outline-offset:2px;border-radius:4px}
+[hidden]{display:none!important}
+a{color:var(--indigo-2)}
+
+/* masthead: the day's board */
+.mast{background:var(--indigo);color:#E7E9F7}
+.mast-in{max-width:1440px;margin:0 auto;padding:18px 20px 0}
+.mast-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 18px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand .mark{width:40px;height:40px;border-radius:10px;background:var(--marigold);color:var(--indigo-ink);display:grid;place-items:center;font-weight:800;font-size:23px;flex:none}
+.brand h1{margin:0;font-size:22px;line-height:1.15;font-weight:700;font-stretch:85%;color:#fff;letter-spacing:.01em}
+.brand small{display:block;color:#A9B0D8;font-size:13.5px}
+#chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin:18px 0 0;border-top:1px solid rgba(255,255,255,.14)}
+.board>div{padding:12px 16px 12px 0}
+.board span{display:block;font-size:13px;color:#A9B0D8}
+.board b{display:block;font-size:27px;line-height:1.05;font-weight:700;font-stretch:75%;color:#fff;margin:2px 0}
+.board i{font-style:normal;font-size:14px;font-weight:600;color:#C9CDE6}.board i.u{color:#86E3B0}.board i.d{color:#FF9D92}
+.daysum{margin:4px 0 0;padding:0 0 16px;color:#D3D7EE;font-size:15.5px;max-width:86ch}.daysum b{color:#fff;font-weight:600}
+nav#tabs{position:sticky;top:0;z-index:30;background:var(--card);border-bottom:1px solid var(--line)}
+nav#tabs .in{max-width:1440px;margin:0 auto;padding:0 14px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav#tabs button{border:0;background:none;color:var(--mute);padding:13px 12px 10px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav#tabs button:hover{color:var(--ink)}nav#tabs button.on{color:var(--indigo);border-bottom-color:var(--marigold)}
+main{max-width:1440px;margin:0 auto;padding:20px}
+
+/* surfaces and text */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:16px;min-width:0}
+h2{font-size:18px;line-height:1.25;font-weight:700;margin:0 0 10px;color:var(--indigo)}
+h4{margin:18px 0 6px;font-size:14.5px;font-weight:700;color:var(--ink)}
+.mute{color:var(--mute)}.up{color:var(--up)}.down{color:var(--down)}.warn{color:var(--warn)}.small{font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}.grid2>*{min-width:0}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.grid4>*{min-width:0}
+.scroll{overflow-x:auto}.empty{color:var(--mute);padding:12px 0}
+ul{margin:4px 0;padding-left:18px}li{margin:3px 0}
+.tk{font-weight:700;font-stretch:78%;font-size:16.5px;letter-spacing:.015em;color:var(--indigo)}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--marigold);border-radius:8px;padding:11px 14px;font-size:14px;margin-bottom:14px;max-width:none}
+.note b{color:var(--indigo-ink)}
+
+/* controls */
+.btn{border:1px solid var(--indigo);background:var(--indigo);color:#fff;border-radius:8px;padding:8px 15px;font:inherit;font-weight:600;cursor:pointer}
+.btn:hover{background:var(--indigo-2)}.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:var(--card);color:var(--indigo);border-color:var(--line)}.btn.ghost:hover{border-color:var(--indigo)}
+input[type=text],input[type=password],input[type=search]{border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:inherit;min-width:0;background:var(--card);color:var(--ink)}
+select{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;background:var(--card);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+.seg button{border:0;background:none;padding:7px 13px;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;color:var(--mute)}
+.seg button:hover{color:var(--ink)}.seg button.on{background:var(--indigo);color:#fff}
+label.ck{display:inline-flex;gap:7px;align-items:center;font-size:14px;cursor:pointer;color:var(--ink)}
+label.ck input{accent-color:var(--indigo);width:16px;height:16px}
+.chip{display:inline-block;border-radius:999px;padding:3px 11px;font-size:13px;font-weight:600;background:var(--chip);color:var(--indigo-2);white-space:nowrap}
+.chip.ok{background:var(--upbg);color:var(--up)}.chip.warn{background:var(--warnbg);color:var(--warn)}.chip.bad{background:var(--downbg);color:var(--down)}
+.chipbtn{border:0;cursor:pointer;font:inherit;font-size:13px}
+.mast .chip{background:rgba(255,255,255,.1);color:#E7E9F7}.mast .chip.ok{background:rgba(134,227,176,.16);color:#A6EDC6}
+.mast .chip.warn{background:var(--marigold);color:var(--indigo-ink)}.mast .chipbtn:hover{filter:brightness(1.08)}
+.mast .btn{background:var(--marigold);border-color:var(--marigold);color:var(--indigo-ink)}
+
+/* scanner: the question, the signal bar, list + plan */
+.ask{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;font-size:21px;font-weight:600;color:var(--indigo);margin:2px 0 4px}
+.ask select.univ{font:inherit;font-size:22px;font-weight:700;font-stretch:88%;color:var(--indigo);border:0;border-bottom:2px solid var(--marigold);border-radius:0;
+  padding:0 28px 1px 2px;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231E2756' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 6px center;
+  -webkit-appearance:none;appearance:none;cursor:pointer;max-width:100%}
+.ask .seg{font-size:15px}
+.ask #q{margin-left:auto;font-size:15px;width:240px;max-width:100%}
+.sigbar{display:flex;gap:8px;margin:14px 0 8px;flex-wrap:wrap}
+.sig{flex:1 1 0;min-width:118px;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 12px 11px;text-align:left;font:inherit;cursor:pointer;position:relative;overflow:hidden;color:var(--ink)}
+.sig b{display:block;font-size:25px;line-height:1.1;font-weight:700;font-stretch:78%}
+.sig span{font-size:13.5px;color:var(--mute)}
+.sig::after{content:"";position:absolute;left:0;bottom:0;height:4px;width:var(--w);background:var(--c)}
+.sig:hover{border-color:#B8BFD9}.sig.on{border-color:var(--indigo);box-shadow:inset 0 0 0 1px var(--indigo);background:#FBFBFE}
+.opts{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:0 0 14px}
+.split{display:block}#sdetail,#edetail,#detail{scroll-margin-top:56px}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th{color:var(--mute);font-weight:600;font-size:13px;white-space:nowrap;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top;text-align:left}
+td.r,th.r{text-align:right}
+th.sort{cursor:pointer;user-select:none}th.sort:hover{color:var(--indigo)}th.sorted{color:var(--indigo)}
+.clickrow tr[data-code]{cursor:pointer}.clickrow tr[data-code]:hover td{background:#F7F8FC}
+.clickrow tr.sel td{background:var(--marigold-soft)}.clickrow tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--marigold)}
+.tablepanel{padding:6px 8px}
+.nm{display:block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;color:var(--mute)}
+td.nw{white-space:nowrap}td .sub{display:block;font-size:12.5px;color:var(--mute);white-space:nowrap}
+.pill{display:inline-block;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:700;white-space:nowrap}
+.pill.buy{background:var(--upbg);color:var(--up)}.pill.sell{background:var(--downbg);color:var(--down)}.pill.hold{background:var(--watchbg);color:var(--watch)}
+.ev{display:inline-block;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:600;white-space:nowrap}
+.ev.high{background:var(--downbg);color:var(--down)}.ev.medium{background:var(--warnbg);color:var(--warn)}.ev.low,.ev.info{background:var(--bg);color:var(--mute)}
+.w{border-radius:8px;padding:8px 11px;margin:6px 0;font-size:14px}.w.high{background:var(--downbg);color:#8A1F17}.w.medium{background:var(--warnbg);color:#6E4100}
+.w.low,.w.info{background:var(--bg);color:var(--ink)}
+.dhead h2{font-size:24px;font-stretch:90%;margin:0}.dhead .px{font-size:26px;font-weight:700;font-stretch:80%}
+.chart{height:340px;width:100%;margin-top:10px}
+.key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mute);margin-top:8px}
+.key i{display:inline-block;width:16px;height:0;border-top:2px solid;vertical-align:middle;margin-right:4px}.key i.d{border-top-style:dashed}
+.tt{display:flex;flex-wrap:wrap;gap:6px}.tt span{border-radius:6px;padding:2px 9px;font-size:13px;background:var(--bg)}
+.hbar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--line)}.hbar div{height:100%}
+.mbar{display:inline-block;height:9px;border-radius:3px;vertical-align:middle}
+details summary{cursor:pointer;color:var(--indigo-2);font-weight:600}
+
+/* market, watchlist, AI */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 13px}.tile>span{display:block;color:var(--mute);font-size:13px}
+.tile b{display:block;font-size:24px;font-weight:700;font-stretch:78%;line-height:1.15}.tile i{font-style:normal;color:var(--mute);font-size:13px}
+.banner{border-radius:var(--r);padding:12px 16px;margin-bottom:16px;font-weight:600;font-size:16px}
+#commentary h3{font-size:16px;margin:14px 0 6px;color:var(--indigo)}#commentary p{margin:5px 0;max-width:80ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;cursor:pointer;display:flex;flex-direction:column;gap:9px;min-width:0}
+.card:hover{border-color:#B8BFD9}.card.sel{border-color:var(--marigold);box-shadow:0 0 0 2px var(--marigold-soft)}
+.card h3{margin:0;font-size:16px;line-height:1.3}.card .code{color:var(--mute);font-size:13px}
+.ring{flex:none}.lv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.lv div{background:var(--bg);border-radius:8px;padding:6px 8px}
+.lv span{display:block;font-size:12px;color:var(--mute)}.lv b{font-size:14px}
+.sentence{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.aiform{display:grid;gap:12px;margin:12px 0;max-width:760px}.aiform>label{display:grid;gap:5px;font-size:14px;font-weight:600}
+.aiform input[type=text],.aiform input[type=password]{width:100%}.aiform>label.ck{display:inline-flex;font-weight:400}.aiform .row>input{flex:1}
+.chat{display:flex;flex-direction:column;gap:8px}.msg{border-radius:10px;padding:9px 13px;max-width:92%}.msg p{margin:4px 0}
+.msg.user{align-self:flex-end;background:var(--indigo);color:#fff}.msg.assistant{background:var(--bg)}
+footer{max-width:1440px;margin:0 auto;padding:6px 20px 28px;color:var(--mute);font-size:13px}
+
+@media(min-width:1180px){
+  .split{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:18px;align-items:start}
+  #sdetail{position:sticky;top:60px;max-height:calc(100vh - 72px);overflow:auto;overscroll-behavior:contain;border-radius:var(--r)}
+  #sdetail .grid2{grid-template-columns:1fr}
+}
+@media(min-width:1180px) and (max-width:1599px){.hide-m{display:none}}
+@media(max-width:640px){main{padding:12px}.mast-in{padding:14px 14px 0}.grid2{grid-template-columns:1fr}.hide-s{display:none}
+  .board{display:flex;overflow-x:auto;gap:22px;scrollbar-width:none}.board>div{flex:none;padding-right:0}.board b{font-size:22px}.ask{font-size:18px}.ask select.univ{font-size:19px}.ask #q{margin-left:0;width:100%}.panel{padding:14px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="mast"><div class="mast-in">
+  <div class="mast-top">
+    <div class="brand"><span class="mark" aria-hidden="true">₹</span><div><h1>India Stock Scanner</h1><small id="asof">Loading the latest close…</small></div></div>
+    <div id="chips"></div><span id="local"></span>
+  </div>
+  <div class="board" id="board"></div>
+  <p class="daysum" id="daysum"></p>
+</div></header>
+<nav id="tabs"><div class="in">
+  <button data-t="scan" class="on">Scanner</button><button data-t="etf">ETFs</button><button data-t="events">Events</button>
+  <button data-t="market">Market</button><button data-t="watch">Watchlist (AI)</button><button data-t="evidence">Evidence</button>
+</div></nav>
+<main>
+<section id="aiset" class="panel" hidden>
+  <h2>Your AI key</h2>
+  <div class="small mute">Use your own AI account to ask questions about any stock or ETF on this site ("Ask AI" under each one).</div>
+  <div class="aiform">
+    <label>Provider <select id="aiprov"></select></label>
+    <label id="aibasel">API address <input type="text" id="aibase" placeholder="e.g. https://openrouter.ai/api/v1" spellcheck="false"></label>
+    <label>API key <span class="row"><input type="password" id="aikey" autocomplete="off" spellcheck="false" placeholder="paste your key"><button class="btn ghost" id="aishow" type="button">Show</button></span>
+      <span class="small mute" id="aikeyhelp" style="font-weight:400"></span></label>
+    <label>Model <span class="row"><input type="text" id="aimodel" list="aimodels" spellcheck="false" placeholder="press Load models"><datalist id="aimodels"></datalist>
+      <button class="btn ghost" id="aiload" type="button">Load models (tests the key)</button></span></label>
+    <label class="ck"><input type="checkbox" id="airemember"> Remember on this device (otherwise it is forgotten when you close the tab)</label>
+  </div>
+  <div class="row"><button class="btn" id="aisave">Save</button><button class="btn ghost" id="aiclear">Remove key</button><button class="btn ghost" id="aiclose">Close</button><span class="small" id="aimsg"></span></div>
+  <div class="note small" style="margin:10px 0 0"><b>Where your key goes:</b> it is saved only in this browser and sent only to the provider you picked, directly from your browser.
+    It is never sent to GitHub or to any server of this site. This page is public, so don't save a key on a shared computer, and set a monthly spending limit in your
+    provider account. Each question uses your paid credits. The automatic daily AI analysis (Watchlist tab) is separate: it uses a key stored as a GitHub secret.</div>
+</section>
+
+<section id="t-scan">
+  <div class="ask"><span>Show</span><select class="univ" aria-label="Which stocks to show"></select><span>for</span>
+    <div class="seg" id="style"><button data-s="swing">swing trades (2–8 weeks)</button><button data-s="short">short trades (days)</button></div>
+    <input type="search" id="q" placeholder="Find a stock or industry" aria-label="Find a stock or industry"></div>
+  <div class="sigbar" id="sigbar"></div>
+  <div class="opts"><label class="ck"><input type="checkbox" id="noresults"> Hide stocks with results inside the hold</label><span class="small mute" id="shown"></span></div>
+  <div id="univnote"></div>
+  <div class="split">
+    <div><div id="scannote"></div><div class="panel scroll tablepanel"><table class="clickrow"><thead id="scanhead"></thead><tbody id="scanbody"></tbody></table></div></div>
+    <aside id="sdetail" aria-label="Selected stock"></aside>
+  </div>
+</section>
+
+<section id="t-etf" hidden>
+  <div id="etfs"></div>
+  <div id="edetail"></div>
+</section>
+
+<section id="t-events" hidden><div id="events"></div></section>
+<section id="t-market" hidden><div id="market"><div class="empty">Loading…</div></div></section>
+
+<section id="t-watch" hidden>
+  <div class="panel"><div class="row"><div class="seg" id="wstyle"><button data-s="swing">Swing</button><button data-s="short">Short-term</button></div>
+    <span class="mute small" id="winfo"></span></div></div>
+  <div class="cards" id="cards"></div>
+  <div id="detail"></div>
+</section>
+
+<section id="t-evidence" hidden><div id="evidence"></div></section>
+</main>
+<footer id="foot"></footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const n = (x, d = 2) => x == null || isNaN(x) ? "–" : Number(x).toLocaleString("en-IN", {minimumFractionDigits: d, maximumFractionDigits: d});
+const inr = x => x == null ? "–" : "₹" + n(x);
+const cls = x => x > 0 ? "up" : x < 0 ? "down" : "";
+const pct = (x, d = 1) => x == null ? "–" : `<span class="${cls(x)}">${x > 0 ? "+" : ""}${n(x, d)}%</span>`;
+const tile = (k, v, s = "") => `<div class="tile"><span>${k}</span><b>${v}</b><i>${s}</i></div>`;
+const li = xs => (xs || []).length ? `<ul>${xs.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<div class="mute small">None</div>`;
+const store = {get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }};
+async function J(path) { const r = await fetch(path, {cache: "no-cache"}); if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`); return r.json(); }
+const price = s => { if (s == null) return null; if (typeof s === "number") return s; const m = String(s).replace(/MA\d+/g, " ").match(/(?:₹|Rs\.?)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?!\s*%)/); return m ? parseFloat(m[1].replace(/,/g, "")) : null; };
+const sigCls = s => s === "Buy" || s === "Strong Buy" ? "buy" : s === "Avoid" || s === "Sell" || s === "Reduce" || s === "Strong Sell" ? "sell" : "hold";
+
+let META = {}, SCAN = null, ANALYSIS = {}, EVID = {}, BT = {}, MARKET = null;
+let STYLE = store.get("dsa_style", "swing"), FILTER = "all", SORT = {key: "swing", dir: -1}, SEL = null, ESEL = null;
+const CHARTS = {};
+
+// ---- tabs -------------------------------------------------------------------------------------------------------------
+const TABS = ["scan", "etf", "events", "market", "watch", "evidence"];
+function showTab(t) {
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x.dataset.t === t));
+  TABS.forEach(k => $("#t-" + k).hidden = k !== t);
+  store.set("dsa_tab", t);
+  Object.values(CHARTS).forEach(c => c.timeScale().fitContent());
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.t));
+
+// ---- chart ------------------------------------------------------------------------------------------------------------
+async function drawChart(id, code, swingView, levels) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!window.LightweightCharts) { el.innerHTML = `<div class="empty">The chart library loads from unpkg.com; it needs the internet.</div>`; el.style.height = "auto"; return; }
+  let rows;
+  try { rows = await J(`data/candles/${encodeURIComponent(code)}.json`);
+    if (rows && rows.time) { const c = rows; rows = c.time.map((tm, i) => { const o = {time: tm}; for (const k in c) if (k !== "time") o[k] = c[k][i]; return o; }); }
+  } catch (e) { el.innerHTML = `<div class="empty">No chart data for ${esc(code)}</div>`; el.style.height = "auto"; return; }
+  if (CHARTS[id]) { try { CHARTS[id].remove(); } catch (e) {} }
+  rows = rows.slice(swingView ? -250 : -120);
+  const chart = LightweightCharts.createChart(el, {autoSize: true, layout: {background: {type: "solid", color: "#fff"}, textColor: "#121620"},
+    grid: {vertLines: {color: "#eef1f6"}, horzLines: {color: "#eef1f6"}}, rightPriceScale: {borderColor: "#e3e7ef"}, timeScale: {borderColor: "#e3e7ef"}});
+  CHARTS[id] = chart;
+  const s = chart.addCandlestickSeries({upColor: "#0b8a4a", downColor: "#cc2b22", borderVisible: false, wickUpColor: "#0b8a4a", wickDownColor: "#cc2b22"});
+  s.setData(rows.map(x => ({time: x.time, open: x.open, high: x.high, low: x.low, close: x.close})));
+  (swingView ? [["ma20", "#1f5eea"], ["ma50", "#a35a00"], ["ma200", "#7a3ff2"]] : [["ma5", "#1f5eea"], ["ma10", "#a35a00"], ["ma20", "#7a3ff2"]]).forEach(([k, c]) => {
+    const l = chart.addLineSeries({color: c, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false});
+    l.setData(rows.filter(x => x[k] != null).map(x => ({time: x.time, value: x[k]})));
+  });
+  levels = (levels || []).filter(x => x[0]);
+  levels.forEach(([p, c, t]) => s.createPriceLine({price: p, color: c, lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: t}));
+  if (levels.length) {
+    const lo = Math.min(...levels.map(x => x[0])), hi = Math.max(...levels.map(x => x[0]));
+    s.applyOptions({autoscaleInfoProvider: orig => { const a = orig(); return a && {...a, priceRange: {minValue: Math.min(a.priceRange.minValue, lo), maxValue: Math.max(a.priceRange.maxValue, hi)}}; }});
+  }
+  chart.timeScale().fitContent();
+}
+const chartKey = swingView => swingView
+  ? `<span><i style="border-color:#1f5eea"></i>MA20</span><span><i style="border-color:#a35a00"></i>MA50</span><span><i style="border-color:#7a3ff2"></i>MA200</span>
+     <span><i class="d" style="border-color:#1f5eea"></i>entry</span><span><i class="d" style="border-color:#cc2b22"></i>stop</span><span><i class="d" style="border-color:#0b8a4a"></i>target 1 (2R) · target 2 (3R)</span>`
+  : `<span><i style="border-color:#1f5eea"></i>MA5</span><span><i style="border-color:#a35a00"></i>MA10</span><span><i style="border-color:#7a3ff2"></i>MA20</span>`;
+const swingLevels = s => s && s.entry ? [[s.entry, "#1f5eea", "entry"], [s.stop, "#cc2b22", "stop"], [s.target1, "#0b8a4a", "target 1 (2R)"], [s.target2, "#0b8a4a", "target 2 (3R)"]] : [];
+
+// ---- shared panels ----------------------------------------------------------------------------------------------------
+function swingPanel(s, showSize = true) {
+  if (!s || !s.ok) return `<div class="panel"><h2>Swing plan</h2><div class="empty">${esc(((s || {}).risks || ["Not enough history"]).join("; "))}</div></div>`;
+  const tt = s.trend_template || {}, size = s.position_size || {};
+  const ck = (k, label) => `<span style="background:${tt[k] ? "var(--upbg)" : "var(--downbg)"};color:${tt[k] ? "var(--up)" : "var(--down)"}">${tt[k] ? "✓" : "✗"} ${label}</span>`;
+  const parts = Object.entries(s.parts || {}).map(([k, v]) => `<tr><td>${esc(k.replace(/_/g, " "))}</td><td class="r">${v}</td></tr>`).join("");
+  return `<div class="panel"><h2>Swing plan (2–8 weeks) · ${s.score}/100 · <span class="pill ${sigCls(s.signal)}">${esc(s.signal)}</span></h2>
+    <div class="tt">${ck("price_above_ma50", "Price > MA50")}${ck("ma50_above_ma150", "MA50 > MA150")}${ck("ma150_above_ma200", "MA150 > MA200")}${ck("ma200_rising", "MA200 rising")}${ck("price_above_ma200", "Price > MA200")}</div>
+    <table style="margin-top:8px">
+      <tr><td>Setup</td><td>${esc(s.setup_text || s.setup)}</td></tr>
+      <tr><td>Entry / stop</td><td><b>₹${n(s.entry)}</b> / <b class="down">₹${n(s.stop)}</b> (${n(s.risk_pct)}% risk)</td></tr>
+      <tr><td>Targets</td><td>Target 1 <b class="up">₹${n(s.target1)}</b> (2R) · Target 2 <b class="up">₹${n(s.target2)}</b> (3R)<br><span class="mute small">R = entry − stop = ₹${n((s.entry || 0) - (s.stop || 0))} per share</span></td></tr>
+      ${showSize ? `<tr><td>Position size</td><td>${s.signal === "Buy" ? `<b>${size.shares ?? 0} shares</b> = ₹${n(size.value, 0)} (${size.capital_pct ?? 0}% of capital), loses ₹${n(size.risk_amount, 0)} at the stop`
+        : `<span class="mute">None: signal is ${esc(s.signal)}</span>`}</td></tr>` : ""}
+      <tr><td>52-week range</td><td>${n(s.pct_from_high, 1)}% from high (₹${n(s.high_52w)}), ${n(s.pct_above_low, 0)}% above low</td></tr>
+      <tr><td>vs NIFTY 50</td><td>3m ${n(s.rs_3m, 1)} pts · 6m ${n(s.rs_6m, 1)} pts</td></tr>
+      <tr><td>ATR · up/down volume · weekly RSI</td><td>₹${n(s.atr14)} (${n(s.atr_pct)}%) · ${n(s.ud_volume_ratio)} · ${n(s.weekly_rsi, 1)}</td></tr></table>
+    <details><summary class="small" style="cursor:pointer">Score parts and reasons</summary><div class="grid2" style="margin-top:6px"><table><thead><tr><th>Part</th><th class="r">Points</th></tr></thead>${parts}</table>
+      <div><h4>Why</h4>${li(s.reasons)}<h4>Risks</h4>${li(s.risks)}</div></div></details></div>`;
+}
+function shortPanel(t) {
+  if (!t) return "";
+  return `<div class="panel"><h2>Short-term (days) · ${t.score}/100 · <span class="pill ${sigCls(t.label)}">${esc(t.label)}</span></h2>
+    <table><tr><td>Trend</td><td>${esc(t.trend)} · ${esc(t.ma_alignment)}</td></tr>
+    <tr><td>MA5 / MA10 / MA20</td><td>${n(t.ma5)} / ${n(t.ma10)} / ${n(t.ma20)}</td></tr>
+    <tr><td>Distance from MA5</td><td>${pct(t.bias_ma5, 2)} ${Math.abs(t.bias_ma5 || 0) > 5 ? '<span class="warn small">too far: wait for a pullback</span>' : ""}</td></tr>
+    <tr><td>Volume vs 5-day</td><td>${n(t.volume_ratio)}× · MACD ${esc(t.macd)} · RSI(12) ${n(t.rsi12, 1)}</td></tr>
+    <tr><td>Support / resistance</td><td>${(t.support || []).map(x => n(x)).join(", ") || "–"} / ${(t.resistance || []).map(x => n(x)).join(", ") || "–"}</td></tr></table>
+    <div class="grid2" style="margin-top:4px"><div><h4>Why</h4>${li(t.reasons)}</div><div><h4>Risks</h4>${li(t.risks)}</div></div></div>`;
+}
+function eventBadge(ev) {
+  const nx = (ev || {}).next_results;
+  if (!nx) return `<span class="mute small">–</span>`;
+  const lvl = nx.sessions <= 5 ? "high" : nx.sessions <= 40 ? "medium" : "info";
+  const d = new Date(nx.date + "T00:00:00").toLocaleDateString("en-IN", {day: "numeric", month: "short"});
+  return `<span class="ev ${lvl}" title="Results ${nx.confirmed ? "confirmed by NSE" : "expected (Yahoo estimate)"}, ${nx.sessions} trading sessions away">${d}${nx.confirmed ? "" : " est."}</span>`;
+}
+function eventsPanel(ev) {
+  if (!ev) return `<div class="panel"><h2>Events</h2><div class="empty">No event data</div></div>`;
+  const nx = ev.next_results, rr = ev.results_reaction;
+  const maxAbs = rr ? Math.max(...rr.moves.map(m => Math.abs(m.move_pct)), 1) : 1;
+  const moves = rr ? rr.moves.slice().reverse().map(m => `<tr><td>${esc(m.date)}</td><td class="r">${pct(m.move_pct, 2)}</td>
+    <td style="width:50%"><span class="mbar" style="width:${Math.abs(m.move_pct) / maxAbs * 100}%;background:${m.move_pct >= 0 ? "var(--up)" : "var(--down)"}"></span></td></tr>`).join("") : "";
+  return `<div class="panel"><h2>Events</h2>
+    ${(ev.warnings || []).map(w => `<div class="w ${w.level}">${esc(w.text)}</div>`).join("") || `<div class="mute small">No event inside a swing holding period (40 sessions).</div>`}
+    <table style="margin-top:6px"><tr><td>Next results</td><td>${nx ? `<b>${esc(nx.date)}</b> · ${nx.sessions} sessions · ${nx.confirmed ? "confirmed by NSE" : "expected (Yahoo estimate, not confirmed)"}` : "not announced"}</td></tr>
+    <tr><td>Last results</td><td>${esc(ev.last_results || "–")}</td></tr>
+    <tr><td>Dividends / splits</td><td>${(ev.corporate_actions || []).map(a => `${esc(a.subject)} (ex ${esc(a.ex_date)})`).join("<br>") || "none in the next 60 days"}</td></tr></table>
+    ${rr ? `<h4>How it moved on its last ${rr.n} results</h4>
+      <div class="small">Median move <b>±${n(rr.median_abs_pct)}%</b> over the 2 sessions around results, vs ±${n(rr.normal_2d_pct)}% on a normal 2-day stretch
+      (<b>${rr.times_normal ?? "–"}×</b>). Biggest: ±${n(rr.max_abs_pct)}% (${esc(rr.max_date)}). Up ${rr.up_count} of ${rr.n} times.</div>
+      <table>${moves}</table>` : ""}
+    <div class="small mute">Sources: ${esc((ev.sources || []).join(", ") || "none")}</div></div>`;
+}
+
+// ---- scanner ------------------------------------------------------------------------------------------------------------
+const COLS = [
+  ["name", "Stock", r => r.code], ["price", "Price", r => r.price, 1], ["change_pct", "Day", r => r.change_pct, 1], ["ret_1m", "1M", r => r.ret_1m, 1],
+  ["ret_3m", "3M", r => r.ret_3m, 1], ["swing", "Swing", r => r.swing.score, 1], ["short", "Short-term", r => r.short.score, 1],
+  ["rs", "vs Nifty 3M", r => r.swing.rs_3m, 1], ["events", "Next results", r => ((r.events || {}).next_results || {}).sessions ?? 999, 1]];
+let UNIV = store.get("dsa_univ", "nifty50");
+const UGROUPS = ["Broad market", "Sector", "Theme"];
+function univ() { return ((SCAN || {}).indices || {})[UNIV] || null; }
+function univStocks() { const u = univ(); if (!u) return SCAN.stocks; const s = new Set(u.codes); return SCAN.stocks.filter(r => s.has(r.code)); }
+function univLabel() { const u = univ(); return u ? u.label : "All stocks"; }
+function fillUnivSelects() {
+  const ix = (SCAN || {}).indices || {};
+  if (!Object.keys(ix).length) { document.querySelectorAll(".univ").forEach(x => x.hidden = true); return; }
+  if (!ix[UNIV]) UNIV = ix.nifty50 ? "nifty50" : Object.keys(ix)[0];
+  const html = UGROUPS.map(g => `<optgroup label="${g === "Theme" ? "Themes" : g === "Sector" ? "Sectors" : "Broad market"}">${Object.entries(ix).filter(([, v]) => v.group === g)
+    .map(([k, v]) => `<option value="${k}">${esc(v.label)} (${v.codes.length})</option>`).join("")}</optgroup>`).join("");
+  document.querySelectorAll(".univ").forEach(x => { x.innerHTML = html; x.value = UNIV; x.onchange = () => setUniv(x.value); });
+}
+function setUniv(k) {
+  UNIV = k; store.set("dsa_univ", k);
+  document.querySelectorAll(".univ").forEach(x => x.value = k);
+  renderScan(); renderEvents(); fillUnivSelects();
+}
+function setStyle(s) {
+  STYLE = s; store.set("dsa_style", s);
+  document.querySelectorAll("#style button").forEach(b => b.classList.toggle("on", b.dataset.s === s));
+  SORT = {key: s === "swing" ? "swing" : "short", dir: -1};
+  renderScan();
+}
+document.querySelectorAll("#style button").forEach(b => b.onclick = () => setStyle(b.dataset.s));
+
+$("#noresults").onchange = () => renderScan();
+$("#q").oninput = () => renderScan();
+function shortNote(st) {
+  const e = ((EVID.edge || {}).short_term || {}), v = (e.nifty500 || {}).verdict;
+  const nb = st.filter(r => r.short.score >= 60).length;
+  const tested = v ? `Tested on ${n(e.signals, 0)} past signals (${esc(e.from)} → ${esc(e.to)}): stocks it rated Buy did <b>no better than the average stock</b> over the next
+    5 and 10 days, and among Nifty 50 stocks the 10 highest scores each week did slightly <b>worse</b>. <b>No proven edge.</b>` : "It has not been tested on history yet.";
+  return `<div class="note"><b>How much to trust this:</b> the short-term score is the original project's rule set. It rates <b>${nb} of ${st.length}</b> stocks Buy today, because it
+    mostly rewards an existing uptrend, so "Buy only" hides few stocks. ${tested} Use it for timing (distance from MA5, volume), not as a forecast.</div>`;
+}
+const SMOOTH = matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+const shortBand = s => s >= 80 ? "Strong Buy" : s >= 60 ? "Buy" : s >= 40 ? "Watch" : "Reduce / Sell";
+const sigOf = r => STYLE === "swing" ? r.swing.signal : shortBand(r.short.score);
+const SIGS = {swing: [["Buy", "uptrend with an entry setup", "var(--up)"], ["Watch", "uptrend, no setup yet", "var(--watch)"], ["Avoid", "no long-term uptrend", "var(--down)"]],
+  short: [["Strong Buy", "score 80+", "var(--up)"], ["Buy", "score 60–79", "#5FAE86"], ["Watch", "score 40–59", "var(--watch)"], ["Reduce / Sell", "below 40", "var(--down)"]]};
+function renderSigbar(st) {
+  const tot = st.length || 1, list = SIGS[STYLE];
+  if (FILTER !== "all" && !list.some(s => s[0] === FILTER)) FILTER = "all";
+  const seg = (key, count, label, color) => `<button class="sig ${FILTER === key ? "on" : ""}" data-f="${esc(key)}" style="--w:${count / tot * 100}%;--c:${color}" aria-pressed="${FILTER === key}">
+    <b>${count}</b><span>${esc(label)}</span></button>`;
+  $("#sigbar").innerHTML = seg("all", st.length, `${univLabel()}, all stocks`, "var(--indigo)")
+    + list.map(([k, d, c]) => seg(k, st.filter(r => sigOf(r) === k).length, `${k}: ${d}`, c)).join("");
+  document.querySelectorAll("#sigbar .sig").forEach(b => b.onclick = () => { FILTER = FILTER === b.dataset.f ? "all" : b.dataset.f; renderScan(); });
+}
+function isBuy(r) { return STYLE === "swing" ? r.swing.signal === "Buy" : r.short.score >= 60; }
+function resultsInHold(r) { const nx = (r.events || {}).next_results; return nx && nx.sessions <= (STYLE === "swing" ? 40 : 5); }
+function scanRows() {
+  const q = $("#q").value.trim().toLowerCase();
+  let rows = univStocks().filter(r => (FILTER === "all" || sigOf(r) === FILTER) && (!$("#noresults").checked || !resultsInHold(r))
+    && (!q || (r.code + " " + r.name + " " + r.industry).toLowerCase().includes(q)));
+  const col = COLS.find(c => c[0] === SORT.key) || COLS[5];
+  return rows.sort((a, b) => { const x = col[2](a), y = col[2](b); return (x > y ? 1 : x < y ? -1 : 0) * SORT.dir * (col[3] ? 1 : -1); });
+}
+function renderScan() {
+  if (!SCAN) return;
+  const st = univStocks(), sw = k => st.filter(r => r.swing.signal === k).length, u = univ();
+  $("#univnote").innerHTML = u && u.total > u.codes.length ? `<div class="note"><b>${esc(u.label)}</b> has ${u.total} members; ${u.codes.length} of them are in the Nifty 500,
+    which is what this site scans. The other ${u.total - u.codes.length} are smaller companies and are not shown.</div>` : "";
+  renderSigbar(st);
+  const inHold = st.filter(r => resultsInHold(r)).length;
+  $("#noresults").parentElement.lastChild.textContent = ` Hide stocks with results inside the hold (${inHold})`;
+  const ac = ((EVID.accuracy || {}).matrix || {})["signal=Buy"];
+  $("#scannote").innerHTML = STYLE === "swing"
+    ? `<div class="note"><b>How much to trust this:</b> on 80,350 past Nifty 500 swing plans, <b>Buy</b> reached target 1 before the stop ${ac ? ac.t1_before_stop_pct + "%" : "about 32%"} of the time,
+       about what chance gives (33%), and did no better than Watch: <b>no proven edge yet</b>. <b>Avoid</b> stocks did worse than average: use it to skip weak stocks.
+       Treat Buy as a plan (entry, stop, size), not a prediction. Details in the Evidence tab.</div>`
+    : shortNote(st);
+  $("#scanhead").innerHTML = `<tr><th class="r">#</th>${COLS.map(c => `<th class="sort ${c[3] ? "r" : ""} ${SORT.key === c[0] ? "sorted" : ""} ${["ret_1m", "rs"].includes(c[0]) ? "hide-s hide-m" : c[0] === "change_pct" ? "hide-s" : ""}" data-k="${c[0]}">${c[1]}${SORT.key === c[0] ? (SORT.dir < 0 ? " ▾" : " ▴") : ""}</th>`).join("")}</tr>`;
+  document.querySelectorAll("#scanhead th.sort").forEach(th => th.onclick = () => { SORT = {key: th.dataset.k, dir: SORT.key === th.dataset.k ? -SORT.dir : -1}; renderScan(); });
+  const rows = scanRows();
+  $("#shown").textContent = rows.length === st.length ? "" : `Showing ${rows.length} of ${st.length}`;
+  $("#scanbody").innerHTML = rows.map((r, i) => {
+    const s = r.swing, t = r.short, warnBuy = isBuy(r) && resultsInHold(r);
+    return `<tr data-code="${esc(r.code)}" class="${SEL === r.code ? "sel" : ""}"><td class="r mute">${i + 1}</td>
+      <td><span class="tk">${esc(r.code)}</span>${r.stale ? ' <span class="chip warn" title="price data older than the latest session">old data</span>' : ""}<span class="nm" title="${esc(r.name)}">${esc(r.name)}</span></td>
+      <td class="r">${n(r.price)}</td><td class="r hide-s">${pct(r.change_pct, 2)}</td><td class="r hide-s hide-m">${pct(r.ret_1m)}</td><td class="r">${pct(r.ret_3m)}</td>
+      <td class="r nw"><b>${s.score ?? "–"}</b> <span class="pill ${sigCls(s.signal)}">${esc(s.signal)}</span>${s.setup && s.setup !== "none" ? `<span class="sub">${esc(s.setup.replace("_", " "))}</span>` : ""}</td>
+      <td class="r nw"><b>${t.score}</b> <span class="pill ${sigCls(t.label)}">${esc(t.label)}</span></td>
+      <td class="r hide-s hide-m">${s.rs_3m == null ? "–" : `<span class="${cls(s.rs_3m)}">${s.rs_3m > 0 ? "+" : ""}${n(s.rs_3m, 1)}</span>`}</td>
+      <td class="r nw">${eventBadge(r.events)}${warnBuy ? `<span class="sub warn">results inside the hold</span>` : ""}</td></tr>`;
+  }).join("") || `<tr><td colspan="10" class="empty">No stock matches these filters.</td></tr>`;
+  document.querySelectorAll("#scanbody tr[data-code]").forEach(tr => tr.onclick = () => selectStock(tr.dataset.code, true));
+  if (!rows.find(r => r.code === SEL)) SEL = rows.length ? rows[0].code : null;
+  document.querySelectorAll("#scanbody tr").forEach(tr => tr.classList.toggle("sel", tr.dataset.code === SEL));
+  renderStock(SEL ? SCAN.stocks.find(r => r.code === SEL) : null);
+}
+function selectStock(code, scroll) {
+  SEL = code;
+  document.querySelectorAll("#scanbody tr").forEach(tr => tr.classList.toggle("sel", tr.dataset.code === code));
+  renderStock(SCAN.stocks.find(r => r.code === code));
+  if (scroll) { if (matchMedia("(min-width: 1180px)").matches) $("#sdetail").scrollTop = 0; else $("#sdetail").scrollIntoView({behavior: SMOOTH, block: "start"}); }
+}
+function renderStock(r) {
+  if (!r) { $("#sdetail").innerHTML = ""; return; }
+  const sv = STYLE === "swing", ai = ((ANALYSIS[STYLE] || []).find(x => x.code === r.code));
+  $("#sdetail").innerHTML = `<div class="panel">
+      <div class="top dhead"><div><h2><span class="tk" style="font-size:inherit">${esc(r.code)}</span></h2>
+        <div>${esc(r.name)} <span class="mute">in ${esc(r.industry)}</span></div></div>
+        <div style="text-align:right"><div class="px">${inr(r.price)}</div>${pct(r.change_pct, 2)} <span class="small mute">on ${esc(r.data_date)}</span></div></div>
+      <div class="row small" style="margin-top:8px;gap:6px 16px"><span>1 week ${pct(r.ret_1w)}</span><span>6 months ${pct(r.ret_6m)}</span><span>1 year ${pct(r.ret_1y)}</span>
+        <span class="mute">₹${n(r.traded_value_cr, 0)} Cr traded a day</span></div>
+      <div id="schart" class="chart" style="margin-top:8px"></div><div class="key">${chartKey(sv)}</div>
+      ${ai ? `<div class="small" style="margin-top:6px">A full ${ai.is_fallback ? "technical" : "AI"} analysis of this stock is in the <a href="#" id="toai">Watchlist tab</a>.</div>` : ""}</div>
+    <div class="grid2">${sv ? swingPanel(r.swing) + eventsPanel(r.events) : shortPanel(r.short) + eventsPanel(r.events)}</div>
+    <div class="grid2">${sv ? shortPanel(r.short) : swingPanel(r.swing)}</div>
+    ${aiPanel("stock", r.code)}`;
+  drawChart("schart", r.code, sv, sv ? swingLevels(r.swing) : []);
+  wireAi("stock", r.code);
+  const a = $("#toai"); if (a) a.onclick = e => { e.preventDefault(); WSTYLE = STYLE; WSEL = r.code; renderWatch(); showTab("watch"); };
+}
+
+// ---- ETFs -----------------------------------------------------------------------------------------------------------------
+function renderEtfs() {
+  if (!SCAN) return;
+  const sec = SCAN.sectors || [], mx = Math.max(...sec.map(s => Math.abs(s.momentum)), 1);
+  const secRows = sec.map(s => `<tr data-code="${esc(s.code)}"><td class="r mute">${s.rank}</td><td><b>${esc(s.tracks)}</b> <span class="small mute">${esc(s.code)}</span></td>
+    <td style="width:35%"><span class="mbar" style="width:${Math.abs(s.momentum) / mx * 100}%;background:${s.momentum >= 0 ? "var(--up)" : "var(--down)"}"></span></td>
+    <td class="r">${pct(s.momentum)}</td><td class="r hide-s">${pct(s.ret_1m)}</td><td class="r">${s.above_ma200 == null ? "–" : s.above_ma200 ? '<span class="up">above</span>' : '<span class="down">below</span>'}</td></tr>`).join("");
+  const cats = ["Broad market", "Sector", "Factor", "Global", "Commodity"];
+  const table = cat => { const rows = SCAN.etfs.filter(e => e.category === cat); if (!rows.length) return "";
+    return `<div class="panel"><h2>${esc(cat)}</h2><div class="scroll"><table class="clickrow"><thead><tr><th>ETF</th><th>Tracks</th><th class="r">Price</th><th class="r">1M</th><th class="r">3M</th><th class="r hide-s">6M</th><th class="r hide-s">1Y</th>
+      <th>Trend</th><th class="r">Swing</th><th class="r">₹ Cr/day</th><th class="r" title="Closing price vs NAV on the same day">vs NAV</th></tr></thead><tbody>
+      ${rows.map(e => `<tr data-code="${esc(e.code)}" class="${ESEL === e.code ? "sel" : ""}"><td><span class="tk">${esc(e.code)}</span><div class="small mute">${esc(e.name)}</div></td><td class="small">${esc(e.tracks)}</td>
+        <td class="r">${n(e.price)}</td><td class="r">${pct(e.ret_1m)}</td><td class="r">${pct(e.ret_3m)}</td><td class="r hide-s">${pct(e.ret_6m)}</td><td class="r hide-s">${pct(e.ret_1y)}</td>
+        <td class="small">${e.above_ma50 ? '<span class="up">▲ MA50</span>' : '<span class="down">▼ MA50</span>'} ${e.above_ma200 == null ? "" : e.above_ma200 ? '<span class="up">▲ MA200</span>' : '<span class="down">▼ MA200</span>'}</td>
+        <td class="r">${e.swing.score ?? "–"} <span class="pill ${sigCls(e.swing.signal)}">${esc(e.swing.signal || "–")}</span></td>
+        <td class="r">${n(e.traded_value_cr, 1)}${e.thin ? ' <span class="chip warn" title="Thinly traded: use limit orders">thin</span>' : ""}</td>
+        <td class="r">${e.premium_pct == null ? "–" : `<span class="${e.premium_pct > 2 ? "down" : Math.abs(e.premium_pct) > 0.5 ? "warn" : ""}" ${e.premium_pct > 2 ? 'style="font-weight:700"' : ""}>${e.premium_pct > 0 ? "+" : ""}${n(e.premium_pct, 2)}%</span>`}</td></tr>`).join("")}</tbody></table></div>
+      ${rows.some(e => e.premium_pct > 2) ? `<div class="w high" style="margin-top:8px">Some of these trade far above their NAV (figures from NSE). This happens to Indian ETFs of foreign markets when fund houses
+        reach the RBI limit on overseas investment and stop creating new units. Buying at a +20% premium means you can lose money even if the foreign index rises,
+        when the premium shrinks. Check the fund house's iNAV before buying.</div>` : ""}</div>`; };
+  $("#etfs").innerHTML = `<div class="note"><b>ETFs</b> are baskets you buy like a share: one ETF gives a whole sector, gold or a foreign market. <b>vs NAV</b>: an ETF can trade above (premium) or below
+      (discount) the value of what it holds; above +0.5% you overpay. <b>thin</b> = under ₹5 crore traded a day: wide gaps between buy and sell prices, so use limit orders.</div>
+    <div class="panel"><h2>Sector strength (3- and 6-month momentum)</h2>
+      <div class="small mute" style="margin-bottom:6px">Which sectors are leading now. This is a <b>ranking only</b>. Rotating into the 3 leaders every month was tested over 15 years and <b>did not beat simply holding the Nifty 50</b> (Evidence tab), so it is not a signal.</div>
+      <div class="scroll"><table class="clickrow"><thead><tr><th class="r">#</th><th>Sector</th><th></th><th class="r">Momentum</th><th class="r hide-s">1M</th><th class="r">vs MA200</th></tr></thead><tbody>${secRows}</tbody></table></div></div>
+    ${cats.map(table).join("")}`;
+  document.querySelectorAll("#etfs tr[data-code]").forEach(tr => tr.onclick = () => selectEtf(tr.dataset.code));
+  if (ESEL) renderEtf(SCAN.etfs.find(e => e.code === ESEL));
+}
+function selectEtf(code) {
+  ESEL = code;
+  document.querySelectorAll("#etfs tr[data-code]").forEach(tr => tr.classList.toggle("sel", tr.dataset.code === code));
+  renderEtf(SCAN.etfs.find(e => e.code === code));
+  $("#edetail").scrollIntoView({behavior: SMOOTH, block: "start"});
+}
+function renderEtf(e) {
+  if (!e) { $("#edetail").innerHTML = ""; return; }
+  $("#edetail").innerHTML = `<div class="panel"><div class="top"><div><h2 style="margin:0">${esc(e.name)} <span class="mute" style="font-weight:400">${esc(e.code)}</span></h2>
+      <div class="small mute">${esc(e.category)} · tracks ${esc(e.tracks)} · close ${esc(e.data_date)} · ₹${n(e.traded_value_cr, 1)} Cr a day
+      ${e.nav ? ` · NAV ₹${n(e.nav)} on ${esc(e.nav_date)} (close that day ₹${n(e.nav_close)}, ${e.premium_pct > 0 ? "+" : ""}${n(e.premium_pct, 2)}%)` : ""}</div></div>
+      <div style="text-align:right"><b style="font-size:20px">${inr(e.price)}</b> ${pct(e.change_pct, 2)}</div></div>
+    <div id="echart" class="chart" style="margin-top:8px"></div><div class="key">${chartKey(true)}</div></div>
+    <div class="grid2">${swingPanel(e.swing)}${shortPanel(e.short)}</div>
+    ${aiPanel("etf", e.code)}`;
+  drawChart("echart", e.code, true, swingLevels(e.swing));
+  wireAi("etf", e.code);
+}
+
+// ---- events ---------------------------------------------------------------------------------------------------------------
+function renderEvents() {
+  if (!SCAN) return;
+  const inU = new Set(univStocks().map(r => r.code));
+  const cal = (SCAN.calendar || []).filter(c => inU.has(c.code)).slice(0, 300).map(c => `<tr data-code="${esc(c.code)}"><td class="nw">${esc(new Date(c.date + "T00:00:00").toLocaleDateString("en-IN", {weekday: "short", day: "numeric", month: "short"}))}</td><td class="r">${c.sessions}</td><td><span class="tk">${esc(c.code)}</span> <span class="nm hide-s">${esc(c.name)}</span></td>
+    <td>${esc(c.kind)}${c.kind === "Results" ? (c.detail.startsWith("confirmed") ? ' <span class="chip ok" title="Board meeting announced on NSE">confirmed</span>' : ' <span class="chip" title="Yahoo estimate; the company has not announced the date yet">est.</span>') : `<div class="small">${esc(c.detail)}</div>`}</td><td class="r">${c.typical_move == null ? "–" : "±" + n(c.typical_move) + "%"}</td></tr>`).join("");
+  const movers = univStocks().filter(r => (r.events || {}).results_reaction).sort((a, b) => b.events.results_reaction.median_abs_pct - a.events.results_reaction.median_abs_pct);
+  const mrows = movers.map(r => { const x = r.events.results_reaction; return `<tr data-code="${esc(r.code)}"><td><span class="tk">${esc(r.code)}</span> <span class="nm hide-s">${esc(r.name)}</span></td>
+    <td class="r"><b>±${n(x.median_abs_pct)}%</b></td><td class="r">±${n(x.normal_2d_pct)}%</td><td class="r">${x.times_normal ?? "–"}×</td><td class="r">±${n(x.max_abs_pct)}%</td><td class="r">${x.up_count}/${x.n}</td></tr>`; }).join("");
+  $("#events").innerHTML = `<div class="ask" style="margin-bottom:14px"><span>Show events for</span><select class="univ" aria-label="Which stocks"></select></div><div class="note"><b>Why events matter:</b> results, dividends and splits make prices jump overnight, past any stop-loss. A swing trade lasts 2–8 weeks, so check
+      whether results fall inside it. Dates marked <b>est.</b> are Yahoo's estimates until the company announces its board meeting on NSE.</div>
+    <div class="grid2">
+      <div class="panel"><h2>Coming up (${esc(univLabel())})</h2><div class="scroll"><table class="clickrow"><thead><tr><th>Date</th><th class="r">Sessions</th><th>Stock</th><th>Event</th><th class="r">Typical move</th></tr></thead>
+        <tbody>${cal || `<tr><td colspan="5" class="empty">No events found</td></tr>`}</tbody></table></div>
+        <h4>Market holidays (next 45 days)</h4><div>${(SCAN.holidays || []).map(h => `<span class="chip">${esc(h)}</span>`).join(" ") || '<span class="mute small">None</span>'}</div></div>
+      <div class="panel"><h2>Who moves most on results</h2><div class="small mute" style="margin-bottom:6px">Median move over the 2 sessions around each of the last 8 results, vs a normal 2-day move.</div>
+        <div class="scroll"><table class="clickrow"><thead><tr><th>Stock</th><th class="r">On results</th><th class="r">Normal</th><th class="r">×</th><th class="r">Biggest</th><th class="r">Up</th></tr></thead><tbody>${mrows}</tbody></table></div></div>
+    </div>`;
+  document.querySelectorAll("#events tr[data-code]").forEach(tr => tr.onclick = () => { showTab("scan"); selectStock(tr.dataset.code, true); });
+  fillUnivSelects();
+}
+
+// ---- market -----------------------------------------------------------------------------------------------------------
+function mdHtml(md) {
+  const out = []; let inList = false;
+  for (const l of md.split("\n")) {
+    const t = esc(l).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<i>$1</i>");
+    if (/^- /.test(l)) { if (!inList) { out.push("<ul>"); inList = true; } out.push(`<li>${t.slice(2)}</li>`); continue; }
+    if (inList) { out.push("</ul>"); inList = false; }
+    if (/^#{1,6}\s/.test(l)) out.push(`<h3>${t.replace(/^#+\s*/, "")}</h3>`); else if (l.trim()) out.push(`<p>${t}</p>`);
+  }
+  if (inList) out.push("</ul>");
+  return out.join("");
+}
+const KEEP_UP = new Set(["IT", "FMCG", "PSU", "PSE", "CPSE", "MNC", "REITS", "&", "MNCS"]);
+const secName = s => s.replace(/^NIFTY /, "").split(" ").map(w => KEEP_UP.has(w) ? w : w.charAt(0) + w.slice(1).toLowerCase()).join(" ");
+function renderMarket(m) {
+  if (!m) { $("#market").innerHTML = `<div class="panel empty">No market review in this build.</div>`; return; }
+  const ov = m.overview || {}, mood = m.mood || {};
+  const bg = mood.score >= 60 ? "var(--upbg)" : mood.score < 40 ? "var(--downbg)" : "var(--warnbg)";
+  const fg = mood.score >= 60 ? "var(--up)" : mood.score < 40 ? "var(--down)" : "var(--warn)";
+  const adv = ov.advances || 0, dec = ov.declines || 0, tot = adv + dec + (ov.unchanged || 0) || 1;
+  const fmtSec = xs => (xs || []).map(x => { const v = parseFloat(x.pct_change); const w = Math.min(100, Math.abs(v) * 40);
+    return `<tr><td>${esc(secName(x.name))}</td><td style="width:45%"><div class="hbar" style="background:none"><div style="width:${w}%;background:${v >= 0 ? "var(--up)" : "var(--down)"}"></div></div></td><td class="r ${cls(v)}">${v > 0 ? "+" : ""}${n(v)}%</td></tr>`; }).join("");
+  const flows = (ov.fii_dii || []).map(f => `<tr><td>${esc(f.category)}</td><td class="r">${n(f.buy_cr, 0)}</td><td class="r">${n(f.sell_cr, 0)}</td><td class="r ${cls(f.net_cr)}"><b>${f.net_cr > 0 ? "+" : ""}${n(f.net_cr, 0)}</b></td></tr>`).join("");
+  $("#market").innerHTML = `<div class="banner" style="background:${bg};color:${fg}">Market mood on ${esc(ov.date)}: ${esc((mood.light || "").replace(/^[^A-Za-z]+/, ""))}, ${mood.score} out of 100 <span style="font-weight:400">(${esc((mood.reasons || []).join(", "))})</span></div>
+    <div class="grid4">
+      <div class="panel"><h2>Breadth (NSE)</h2>
+        <div class="hbar"><div style="width:${adv / tot * 100}%;background:var(--up)"></div><div style="width:${(ov.unchanged || 0) / tot * 100}%;background:#c9cfda"></div><div style="width:${dec / tot * 100}%;background:var(--down)"></div></div>
+        <div class="row small" style="justify-content:space-between;margin-top:6px"><span class="up">▲ ${adv} advances</span><span class="mute">${ov.unchanged ?? "–"} unchanged</span><span class="down">▼ ${dec} declines</span></div>
+        <table style="margin-top:8px"><tr><td>Upper circuit</td><td class="r up">${ov.upper_circuit ?? "–"}</td></tr><tr><td>Lower circuit</td><td class="r down">${ov.lower_circuit ?? "–"}</td></tr>
+        <tr><td>Cash turnover</td><td class="r">${ov.turnover_cr ? "₹" + n(ov.turnover_cr, 0) + " Cr" : "–"}</td></tr></table></div>
+      <div class="panel"><h2>FII / DII (cash, ₹ Cr)</h2>${flows ? `<table><thead><tr><th></th><th class="r">Buy</th><th class="r">Sell</th><th class="r">Net</th></tr></thead>${flows}</table>` : `<div class="empty">Unavailable</div>`}</div>
+      <div class="panel"><h2>Leading sectors</h2><table>${fmtSec(ov.top_sectors) || "<tr><td class='mute'>Unavailable</td></tr>"}</table></div>
+      <div class="panel"><h2>Lagging sectors</h2><table>${fmtSec(ov.bottom_sectors) || "<tr><td class='mute'>Unavailable</td></tr>"}</table></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h2>Commentary ${m.ai ? "" : '<span class="chip warn">template, no AI</span>'}</h2><div id="commentary">${mdHtml(m.commentary || "")}</div></div>
+      <div class="panel"><h2>Market news</h2>${(m.news || []).length ? `<ul>${m.news.map(x => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a> <span class="mute small">${esc(x.source)} ${esc(x.published || "")}</span></li>`).join("")}</ul>` : `<div class="empty">No news</div>`}</div>
+    </div>
+    ${(ov.limits || []).length ? `<div class="panel small mute"><b>Data limits:</b> ${esc(ov.limits.join("; "))}</div>` : ""}
+    <div class="mute small">Generated ${esc(m.generated_ist || "")}</div>`;
+}
+
+// ---- watchlist (full AI / technical analysis) -----------------------------------------------------------------------------
+let WSTYLE = STYLE, WSEL = null;
+document.querySelectorAll("#wstyle button").forEach(b => b.onclick = () => { WSTYLE = b.dataset.s; WSEL = null; renderWatch(); });
+function decision(r) { return r.decision_type === "buy" ? "buy" : r.decision_type === "sell" ? "sell" : "hold"; }
+function ring(score) {
+  const c = 2 * Math.PI * 22, v = Math.max(0, Math.min(100, score || 0)) / 100 * c;
+  const col = score >= 60 ? "var(--up)" : score < 40 ? "var(--down)" : "var(--warn)";
+  return `<svg class="ring" width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22" fill="none" stroke="var(--line)" stroke-width="6"/>
+    <circle cx="28" cy="28" r="22" fill="none" stroke="${col}" stroke-width="6" stroke-dasharray="${v} ${c}" stroke-linecap="round" transform="rotate(-90 28 28)"/>
+    <text x="28" y="33" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">${score ?? "–"}</text></svg>`;
+}
+function card(r) {
+  const d = r.dashboard || {}, sp = (d.battle_plan || {}).sniper_points || {};
+  const one = (d.core_conclusion || {}).one_sentence || r.analysis_summary || "";
+  return `<div class="card ${WSEL === r.code ? "sel" : ""}" data-code="${esc(r.code)}">
+    <div class="top"><div><h3>${esc(r.name)}</h3><div class="code">${esc(r.code)} · ${esc(r.analysis_date || "")}</div>
+      <div style="margin-top:6px"><span class="pill ${decision(r)}">${esc(r.operation_advice)}</span> <span class="small mute">${esc(r.trend_prediction)}</span></div></div>${ring(r.sentiment_score)}</div>
+    <div><b style="font-size:18px">${inr(r.current_price)}</b> ${r.change_pct == null ? "" : pct(r.change_pct, 2)}</div>
+    <div class="sentence small">${esc(one)}</div>
+    <div class="lv"><div><span>${r.style === "swing" ? "Entry" : "Buy zone"}</span><b>${inr(price(sp.ideal_buy))}</b></div><div><span>Stop-loss</span><b class="down">${inr(price(sp.stop_loss))}</b></div><div><span>${r.style === "swing" ? "Target 1 (2R)" : "Target"}</span><b class="up">${inr(price(sp.take_profit))}</b></div></div>
+    <div class="small mute">${r.is_fallback ? '<span class="chip warn" style="padding:1px 8px">technical-only</span>' : esc(r.model_used || "")}</div></div>`;
+}
+function renderWatch() {
+  document.querySelectorAll("#wstyle button").forEach(b => b.classList.toggle("on", b.dataset.s === WSTYLE));
+  const rows = ANALYSIS[WSTYLE] || [];
+  $("#winfo").textContent = `Watchlist: ${(META.watchlist || []).join(", ")} · daily analysis ${META.ai ? "by " + META.ai : "is technical only (add OPENAI_API_KEY as a GitHub secret for AI)"}. Change the list with STOCK_LIST. To ask your own questions, use "Ask AI" on any stock.`;
+  $("#cards").innerHTML = rows.length ? rows.map(card).join("") : `<div class="panel empty">No watchlist analysis in this build.</div>`;
+  document.querySelectorAll("#cards .card").forEach(c => c.onclick = () => { WSEL = c.dataset.code; renderWatch(); $("#detail").scrollIntoView({behavior: SMOOTH, block: "start"}); });
+  if (!WSEL && rows.length) WSEL = rows[0].code;
+  renderDetail(rows.find(r => r.code === WSEL));
+}
+function renderDetail(r) {
+  if (!r) { $("#detail").innerHTML = ""; return; }
+  const d = r.dashboard || {}, core = d.core_conclusion || {}, pos = core.position_advice || {}, dp = d.data_perspective || {};
+  const pp = dp.price_position || {}, va = dp.volume_analysis || {}, cs = dp.chip_structure || {}, ts = dp.trend_status || {};
+  const bp = d.battle_plan || {}, sp = bp.sniper_points || {}, ps = bp.position_strategy || {}, intel = d.intelligence || {}, ph = d.phase_decision || {};
+  const sv = r.style === "swing";
+  $("#detail").innerHTML = `<div class="panel">
+    <div class="top"><div><h2 style="margin:0">${esc(r.name)} <span class="mute" style="font-weight:400">${esc(r.code)}</span></h2>
+      <div class="small mute">${esc(r.analysis_date)} close · model: ${esc(r.model_used)} · confidence ${esc(r.confidence_level)}</div></div>
+      <span class="pill ${decision(r)}" style="font-size:14px">${esc(r.operation_advice)} · ${r.sentiment_score}/100</span></div>
+    <p style="font-size:15px;margin:10px 0"><b>${esc(core.one_sentence || r.analysis_summary)}</b></p>
+    ${r.guardrail_reason ? `<p class="small" style="color:var(--warn)">${esc(r.guardrail_reason)}</p>` : ""}
+    <div id="wchart" class="chart"></div><div class="key">${chartKey(sv)}</div></div>
+  ${sv && r.swing ? swingPanel(r.swing) : ""}
+  <div class="grid2">
+    <div class="panel"><h2>What to do</h2>
+      <table><tr><td>🆕 No position</td><td>${esc(pos.no_position || "–")}</td></tr><tr><td>💼 Holding</td><td>${esc(pos.has_position || "–")}</td></tr>
+      <tr><td>⏰ Timing</td><td>${esc(core.time_sensitivity || "–")}</td></tr></table>
+      <h4>Levels</h4><table><tr><td>🎯 Ideal buy</td><td>${esc(sp.ideal_buy || "–")}</td></tr><tr><td>🔵 Secondary buy</td><td>${esc(sp.secondary_buy || "–")}</td></tr>
+      <tr><td>🛑 Stop-loss</td><td>${esc(sp.stop_loss || "–")}</td></tr><tr><td>🎊 Target</td><td>${esc(sp.take_profit || "–")}</td></tr></table>
+      <h4>Position</h4><div class="small">${esc(ps.suggested_position || "–")} · ${esc(ps.entry_plan || "")} · ${esc(ps.risk_control || "")}</div></div>
+    <div class="panel"><h2>Checklist</h2>${li(bp.action_checklist)}
+      <h4>Phase</h4><div class="small"><b>${esc(ph.action_window || "–")}</b> → ${esc(ph.immediate_action || "–")}</div>${li(ph.watch_conditions)}</div>
+    <div class="panel"><h2>Data</h2><table>
+      <tr><td>Trend</td><td>${esc(ts.ma_alignment || "–")} (${esc(ts.trend_score ?? "–")}/100)</td></tr>
+      <tr><td>Price / MA5 / MA10 / MA20</td><td>${n(pp.current_price)} / ${n(pp.ma5)} / ${n(pp.ma10)} / ${n(pp.ma20)}</td></tr>
+      <tr><td>Support / Resistance</td><td>${n(price(pp.support_level))} / ${n(price(pp.resistance_level))}</td></tr>
+      <tr><td>Volume</td><td>ratio ${n(va.volume_ratio)} · ${esc(va.volume_status || "")}</td></tr>
+      <tr><td>Delivery (NSE)</td><td>${cs.available === false ? esc(cs.reason) : `${esc(cs.profit_ratio)} · ${esc(cs.concentration)} → <b>${esc(cs.chip_health)}</b>`}</td></tr></table></div>
+    <div class="panel"><h2>News & risks</h2>
+      <div class="small"><b>Sentiment:</b> ${esc(intel.sentiment_summary || "–")}</div><div class="small"><b>Earnings:</b> ${esc(intel.earnings_outlook || "–")}</div>
+      <h4>🚨 Risk alerts</h4>${li(intel.risk_alerts)}<h4>✨ Positive catalysts</h4>${li(intel.positive_catalysts)}
+      <div class="small"><b>Latest:</b> ${esc(intel.latest_news || "–")}</div></div>
+  </div>`;
+  drawChart("wchart", r.code, sv, sv ? swingLevels(r.swing) : [[price(sp.ideal_buy), "#0b8a4a", "buy zone"], [price(sp.stop_loss), "#cc2b22", "stop-loss"], [price(sp.take_profit), "#0b8a4a", "target"]]);
+}
+
+// ---- evidence -------------------------------------------------------------------------------------------------------------
+function renderEvidence() {
+  const sc = EVID.swing_check, m = (EVID.accuracy || {}).matrix;
+  const f = x => x == null ? "–" : (x > 0 ? "+" : "") + n(x) + "%";
+  let html = "";
+  if (sc && sc.groups) {
+    const b = sc.groups["signal=Buy"] || {}, av = sc.groups["signal=Avoid"] || {}, w = sc.groups["signal=Watch"] || {};
+    html += `<div class="panel"><h2>Does the swing score pick better stocks?</h2>
+      <div class="small mute">${esc(sc.from)} → ${esc(sc.to)} · today's Nifty 500 members · ${n(sc.signals, 0)} signals · 4-week hold after 0.30% charges · compared with the average Nifty 500 stock on the same dates</div>
+      <table style="margin-top:8px"><thead><tr><th>Signal</th><th class="r">vs average stock</th><th class="r">t-stat</th><th>Verdict</th></tr></thead>
+      <tr><td><span class="pill buy">Buy</span></td><td class="r">${f(b.avg_vs_universe)}</td><td class="r">${n(b.t_vs_universe_by_date)}</td><td>No proven edge</td></tr>
+      <tr><td><span class="pill hold">Watch</span></td><td class="r">${f(w.avg_vs_universe)}</td><td class="r">${n(w.t_vs_universe_by_date)}</td><td class="small">Slightly better than average</td></tr>
+      <tr><td><span class="pill sell">Avoid</span></td><td class="r">${f(av.avg_vs_universe)}</td><td class="r">${n(av.t_vs_universe_by_date)}</td><td><b>Useful filter</b>: worse than average in both halves</td></tr></table></div>`;
+  }
+  if (m) {
+    const row = (label, g) => g ? `<tr><td>${label}</td><td class="r">${n(g.n, 0)}</td><td class="r">${g.t1_before_stop_pct}%</td><td class="r">${g.t2_before_stop_pct}%</td>
+      <td class="r">${g.stop_first_pct}%</td><td class="r">${g.timed_out_pct}%</td><td class="r">${g.A_all_at_T2.win_rate_pct}%</td><td class="r">${pct(g.A_all_at_T2.avg_return_pct, 2)}</td></tr>` : "";
+    const years = Object.keys(m).filter(k => k.startsWith("Buy in ")).map(k => row(k.replace("Buy in ", "Buy, "), m[k])).join("");
+    html += `<div class="panel"><h2>Accuracy matrix: how often each swing plan hit target 1 / target 2 / the stop</h2>
+      <div class="scroll"><table><thead><tr><th>Signal</th><th class="r">Plans</th><th class="r">Target 1 hit</th><th class="r">Target 2 hit</th><th class="r">Stop first</th><th class="r">8 wks, neither</th><th class="r">Win rate</th><th class="r">Avg / trade</th></tr></thead>
+      ${row("Buy", m["signal=Buy"])}${row("Watch", m["signal=Watch"])}${row("Avoid", m["signal=Avoid"])}${years}</table></div>
+      <div class="small mute">Held to target 2, the stop or 8 weeks, after charges. By chance alone a 2R target comes before a 1R stop about 33% of the time. Today's Nifty 500 members only, so results look better than reality.</div></div>`;
+  }
+  const btTable = (style, label) => { const b = BT[style]; const s = b && b.summaries && b.summaries.__overall__; if (!s) return `<div class="panel"><h2>${label}</h2><div class="empty">Nothing to judge yet</div></div>`;
+    const rows = Object.entries(s.advice_breakdown || {}).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="r">${v.total}</td><td class="r up">${v.win}</td><td class="r down">${v.loss}</td><td class="r">${v.win_rate_pct == null ? "–" : n(v.win_rate_pct) + "%"}</td></tr>`).join("");
+    return `<div class="panel"><h2>${label}</h2><div class="small mute">Calls saved by this app, judged ${b.days} sessions later: ${s.completed_count ?? 0} judged, ${s.insufficient_count ?? 0} too recent.
+      Direction right ${s.direction_accuracy_pct == null ? "–" : n(s.direction_accuracy_pct) + "%"}.</div>
+      ${rows ? `<table><thead><tr><th>Advice</th><th class="r">Total</th><th class="r">Right</th><th class="r">Wrong</th><th class="r">Win rate</th></tr></thead>${rows}</table>` : ""}</div>`; };
+  html = edgeHtml() + html;
+  html += `<div class="grid2">${btTable("swing", "Live record: swing calls")}${btTable("short", "Live record: short-term calls")}</div>`;
+  $("#evidence").innerHTML = html;
+}
+
+function edgeHtml() {
+  const E = EVID.edge || {};
+  if (!Object.keys(E).length) return "";
+  const v = x => `<span class="pill ${x === "PASS" ? "buy" : "sell"}">${x === "PASS" ? "PASSED" : "FAILED"}</span>`;
+  const f = (x, d = 2) => x == null ? "–" : (x > 0 ? "+" : "") + n(x, d) + "%";
+  let h = `<div class="panel"><h2>Edge research (rules written down before testing: research/EDGE_RESEARCH.md)</h2>
+    <div class="small mute">A rule counts as an edge only if it beats the simple alternative after costs in both halves of the period, with a t-statistic of 2 or more.</div>`;
+  const st = E.short_term;
+  if (st) {
+    const g = st.nifty500["5 sessions"], g50 = st.nifty50_only["5 sessions"];
+    const row = (k, a, b) => `<tr><td>${k}</td><td class="r">${f(a.avg_vs_universe_pct, 3)}</td><td class="r">${n(a.t)}</td><td class="r">${f(b.avg_vs_universe_pct, 3)}</td><td class="r">${n(b.t)}</td></tr>`;
+    h += `<h4>E1 · Short-term score: does a high score beat the average stock over the next 5 days? ${v(st.nifty500.verdict["Buy (60+)"] === "PASS" || st.nifty500.verdict["Top 10 per Friday"] === "PASS" ? "PASS" : "FAIL")}</h4>
+      <div class="scroll"><table><thead><tr><th>Group</th><th class="r">Nifty 500: vs average</th><th class="r">t</th><th class="r">Nifty 50: vs average</th><th class="r">t</th></tr></thead>
+      ${["80+ Strong Buy", "60-79 Buy", "40-59 Watch", "<40 Reduce/Sell", "Top 10 per Friday"].map(k => row(k, g[k], g50[k])).join("")}</table></div>
+      <div class="small mute">${n(st.signals, 0)} signals, ${esc(st.from)} → ${esc(st.to)}, after 0.30% costs. No score band beats the average stock.</div>`;
+  }
+  const re = E.results;
+  if (re) {
+    const b = re.buy_signals, a = re.all_signals;
+    h += `<h4>E2 · Event checker: do swing trades with results in their first 10 sessions do worse? ${v(a.verdict)}</h4>
+      <div class="scroll"><table><thead><tr><th>Swing trades</th><th class="r">Trades</th><th class="r">Avg return</th><th class="r">Worst 5%</th><th class="r">Stop hit</th></tr></thead>
+      <tr><td>Results within 10 sessions (rule would skip)</td><td class="r">${n(a.skipped_by_rule.trades, 0)}</td><td class="r">${f(a.skipped_by_rule.avg_return_pct)}</td><td class="r">${f(a.skipped_by_rule.worst_5pct_pct)}</td><td class="r">${a.skipped_by_rule.stop_hit_pct}%</td></tr>
+      <tr><td>No results within 10 sessions</td><td class="r">${n(a.kept.trades, 0)}</td><td class="r">${f(a.kept.avg_return_pct)}</td><td class="r">${f(a.kept.worst_5pct_pct)}</td><td class="r">${a.kept.stop_hit_pct}%</td></tr>
+      <tr><td>Buy signals only: skipped / kept</td><td class="r">${n(b.skipped_by_rule.trades, 0)} / ${n(b.kept.trades, 0)}</td><td class="r">${f(b.skipped_by_rule.avg_return_pct)} / ${f(b.kept.avg_return_pct)}</td>
+        <td class="r">${f(b.skipped_by_rule.worst_5pct_pct)} / ${f(b.kept.worst_5pct_pct)}</td><td class="r">${b.skipped_by_rule.stop_hit_pct}% / ${b.kept.stop_hit_pct}%</td></tr></table></div>
+      <div class="small mute">${esc(a.why)} (t ${n(a.t_skipped_minus_kept)}).</div>`;
+  }
+  const sr = E.sector_rotation;
+  if (sr) {
+    const row = (label, s) => `<tr><td>${label}</td><td class="r">${n(s.strategy_cagr_pct)}%</td><td class="r">${n(s.nifty_cagr_pct)}%</td><td class="r">${n(s.first_half.strategy_cagr_pct)}% vs ${n(s.first_half.nifty_cagr_pct)}%</td>
+      <td class="r">${n(s.second_half.strategy_cagr_pct)}% vs ${n(s.second_half.nifty_cagr_pct)}%</td><td class="r">${n(s.strategy_max_dd_pct, 1)}% vs ${n(s.nifty_max_dd_pct, 1)}%</td><td class="r">${n(s.t_monthly_excess)}</td><td>${v(s.verdict)}</td></tr>`;
+    h += `<h4>E3 · Sector rotation: hold the 3 strongest of 12 sectors, monthly, vs holding the Nifty 50 (${esc(sr.A_top3.from)} → ${esc(sr.A_top3.to)})</h4>
+      <div class="scroll"><table><thead><tr><th>Rule</th><th class="r">Per year</th><th class="r">Nifty 50</th><th class="r">2011–2019</th><th class="r">2019–2026</th><th class="r">Worst fall</th><th class="r">t</th><th></th></tr></thead>
+      ${row("A: top 3 sectors", sr.A_top3)}${row("B: top 3, cash when Nifty < 200-day avg", sr.B_top3_cash_when_nifty_below_200dma)}</table></div>
+      <div class="small mute">After 0.15% costs per side. Rotation won after 2019 but lost before it, so over 15 years it did not beat simply holding the Nifty 50. Rule B cut the worst fall but not the return gap.</div>`;
+  }
+  return h + `</div>`;
+}
+
+// ---- your own AI key: stored only in this browser, sent only to the chosen provider ------------------------------------------
+const PROVIDERS = {
+  openai: {label: "OpenAI", base: "https://api.openai.com/v1", model: "", help: "Create one at platform.openai.com → API keys."},
+  anthropic: {label: "Anthropic (Claude)", base: "https://api.anthropic.com/v1", model: "claude-opus-5-5", help: "Create one at console.anthropic.com → API keys."},
+  gemini: {label: "Google Gemini", base: "https://generativelanguage.googleapis.com/v1beta", model: "", help: "Create one at aistudio.google.com → Get API key."},
+  compat: {label: "Other, OpenAI-compatible (OpenRouter, DeepSeek, Groq…)", base: "", model: "", help: "Use the API address and key from your provider's dashboard."},
+};
+function aiLoad() {
+  for (const k of ["sessionStorage", "localStorage"]) { try { const v = window[k].getItem("dsa_ai"); if (v) { const c = JSON.parse(v); if (c && c.key && PROVIDERS[c.provider]) return c; } } catch (e) {} }
+  return null;
+}
+let AI = aiLoad();
+function aiStore(cfg, remember) {
+  for (const k of ["sessionStorage", "localStorage"]) { try { window[k].removeItem("dsa_ai"); } catch (e) {} }
+  if (cfg) { try { window[remember ? "localStorage" : "sessionStorage"].setItem("dsa_ai", JSON.stringify(cfg)); } catch (e) {} }
+  AI = cfg; renderChips(); refreshAiPanels();
+}
+const aiBase = c => (c.provider === "compat" ? c.base : PROVIDERS[c.provider].base).replace(/\/+$/, "");
+const aiErr = d => (d && d.error && (d.error.message || d.error.type)) || (Array.isArray(d) && d[0] && d[0].error && d[0].error.message) || "";
+const ANTHROPIC_H = key => ({"x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"});
+async function aiFetch(url, opts) {
+  let r;
+  try { r = await fetch(url, opts); }
+  catch (e) { throw new Error("Could not reach the provider (no internet, a wrong API address, or the provider does not accept requests from a web page)."); }
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((aiErr(d) || `HTTP ${r.status}`) + (r.status === 401 || r.status === 403 ? " (check the key)" : ""));
+  return d;
+}
+async function aiModels(c) {
+  if (c.provider === "anthropic") return (await aiFetch(`${aiBase(c)}/models?limit=100`, {headers: ANTHROPIC_H(c.key)})).data.map(m => m.id);
+  if (c.provider === "gemini") return ((await aiFetch(`${aiBase(c)}/models?pageSize=200`, {headers: {"x-goog-api-key": c.key}})).models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name.replace(/^models\//, ""));
+  const ids = ((await aiFetch(`${aiBase(c)}/models`, {headers: {authorization: "Bearer " + c.key}})).data || []).map(m => m.id).sort();
+  return c.provider === "openai" ? ids.filter(i => !/embed|tts|whisper|dall-e|image|audio|realtime|moderation|transcribe|search|babbage|davinci/.test(i)) : ids;
+}
+async function aiCall(c, system, msgs) {
+  if (c.provider === "anthropic") {
+    const d = await aiFetch(`${aiBase(c)}/messages`, {method: "POST", headers: {"content-type": "application/json", ...ANTHROPIC_H(c.key)},
+      body: JSON.stringify({model: c.model, max_tokens: 2000, system, messages: msgs.map(m => ({role: m.role, content: m.text}))})});
+    const text = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+    if (!text) throw new Error("The model returned no text" + (d.stop_reason ? ` (${d.stop_reason})` : ""));
+    return text;
+  }
+  if (c.provider === "gemini") {
+    const d = await aiFetch(`${aiBase(c)}/models/${encodeURIComponent(c.model.replace(/^models\//, ""))}:generateContent`, {method: "POST",
+      headers: {"content-type": "application/json", "x-goog-api-key": c.key},
+      body: JSON.stringify({systemInstruction: {parts: [{text: system}]}, contents: msgs.map(m => ({role: m.role === "assistant" ? "model" : "user", parts: [{text: m.text}]}))})});
+    const parts = ((((d.candidates || [])[0] || {}).content || {}).parts || []);
+    const text = parts.map(p => p.text || "").join("");
+    if (!text) throw new Error("The model returned no text" + (((d.candidates || [])[0] || {}).finishReason ? ` (${d.candidates[0].finishReason})` : ""));
+    return text;
+  }
+  const body = {model: c.model, messages: [{role: "system", content: system}, ...msgs.map(m => ({role: m.role, content: m.text}))]};
+  if (c.provider === "openai") body.max_completion_tokens = 2000; else body.max_tokens = 2000;
+  const d = await aiFetch(`${aiBase(c)}/chat/completions`, {method: "POST", headers: {"content-type": "application/json", authorization: "Bearer " + c.key}, body: JSON.stringify(body)});
+  const text = ((((d.choices || [])[0] || {}).message) || {}).content || "";
+  if (!text) throw new Error("The model returned no text");
+  return text;
+}
+
+// settings panel
+$("#aiprov").innerHTML = Object.entries(PROVIDERS).map(([k, p]) => `<option value="${k}">${esc(p.label)}</option>`).join("");
+function aiForm() { return {provider: $("#aiprov").value, base: $("#aibase").value.trim(), key: $("#aikey").value.trim(), model: $("#aimodel").value.trim()}; }
+function aiProvChanged(keepModel) {
+  const p = PROVIDERS[$("#aiprov").value];
+  $("#aibasel").hidden = $("#aiprov").value !== "compat";
+  $("#aikeyhelp").textContent = p.help;
+  if (!keepModel) { $("#aimodel").value = p.model; $("#aimodels").innerHTML = ""; }
+  $("#aimodel").placeholder = p.model || "press Load models, then pick one";
+}
+function openAiSettings() {
+  const c = AI || {provider: "openai", base: "", key: "", model: ""};
+  $("#aiprov").value = c.provider; $("#aibase").value = c.base || ""; $("#aikey").value = c.key || ""; $("#aimodel").value = c.model || "";
+  let remembered = false; try { remembered = !!localStorage.getItem("dsa_ai"); } catch (e) {}
+  $("#airemember").checked = remembered; $("#aimsg").textContent = ""; $("#aikey").type = "password"; $("#aishow").textContent = "Show";
+  aiProvChanged(true); $("#aiset").hidden = false; $("#aiset").scrollIntoView({behavior: SMOOTH, block: "start"});
+}
+$("#aiprov").onchange = () => aiProvChanged(false);
+$("#aishow").onclick = () => { const k = $("#aikey"); k.type = k.type === "password" ? "text" : "password"; $("#aishow").textContent = k.type === "password" ? "Show" : "Hide"; };
+$("#aiclose").onclick = () => { $("#aiset").hidden = true; };
+$("#aiclear").onclick = () => { aiStore(null); $("#aikey").value = ""; $("#aimsg").innerHTML = `<span class="up">Key removed from this browser.</span>`; };
+function aiValid(c, needModel) {
+  if (!c.key) return "Paste your API key.";
+  if (c.provider === "compat" && !/^https:\/\//.test(c.base)) return "Enter the provider's API address (starting with https://).";
+  if (needModel && !c.model) return "Choose a model (press Load models).";
+  return "";
+}
+$("#aiload").onclick = async () => {
+  const c = aiForm(), bad = aiValid(c, false);
+  if (bad) { $("#aimsg").innerHTML = `<span class="down">${esc(bad)}</span>`; return; }
+  $("#aimsg").textContent = "Checking the key…"; $("#aiload").disabled = true;
+  try {
+    const ms = await aiModels(c);
+    $("#aimodels").innerHTML = ms.map(m => `<option value="${esc(m)}">`).join("");
+    $("#aimsg").innerHTML = `<span class="up">✓ Key works: ${ms.length} models. Click the Model box to pick one.</span>`;
+  } catch (e) { $("#aimsg").innerHTML = `<span class="down">${esc(e.message)}</span>`; }
+  $("#aiload").disabled = false;
+};
+$("#aisave").onclick = () => {
+  const c = aiForm(), bad = aiValid(c, true);
+  if (bad) { $("#aimsg").innerHTML = `<span class="down">${esc(bad)}</span>`; return; }
+  aiStore(c, $("#airemember").checked);
+  $("#aimsg").innerHTML = `<span class="up">✓ Saved ${$("#airemember").checked ? "on this device" : "for this tab"}. Open any stock and use "Ask AI".</span>`;
+};
+
+// what the AI sees: this site's data for one stock/ETF, plus the test results
+function evidenceText() {
+  const out = [], sc = EVID.swing_check && EVID.swing_check.groups, acc = ((EVID.accuracy || {}).matrix || {})["signal=Buy"], E = EVID.edge || {};
+  if (sc) out.push(`Swing score history (Nifty 500, 4-week hold, after costs): Buy ${n(sc["signal=Buy"].avg_vs_universe)}% vs the average stock (t ${sc["signal=Buy"].t_vs_universe_by_date}) = no proven edge; Avoid ${n(sc["signal=Avoid"].avg_vs_universe)}% (t ${sc["signal=Avoid"].t_vs_universe_by_date}) = a useful filter.`);
+  if (acc) out.push(`Swing Buy plans reached target 1 before the stop ${acc.t1_before_stop_pct}% of the time and target 2 ${acc.t2_before_stop_pct}% (chance alone gives about 33% for target 1); average ${n(acc.A_all_at_T2.avg_return_pct)}% per trade after costs.`);
+  if (E.short_term) out.push("Short-term score: tested, no score band beat the average stock over 5-10 days (no proven edge).");
+  if (E.results) out.push(`Swing trades with results in their first 10 sessions: same average return and worst-5% loss as others, slightly more stop-outs (${E.results.all_signals.skipped_by_rule.stop_hit_pct}% vs ${E.results.all_signals.kept.stop_hit_pct}%).`);
+  if (E.sector_rotation) out.push(`Sector rotation (top 3 sectors monthly, 2011-2026): ${E.sector_rotation.A_top3.strategy_cagr_pct}%/yr vs Nifty 50 ${E.sector_rotation.A_top3.nifty_cagr_pct}%/yr = did not beat the index.`);
+  return out;
+}
+function aiContext(kind, code) {
+  const r = (kind === "etf" ? SCAN.etfs : SCAN.stocks).find(x => x.code === code) || {};
+  const {swing, short, events, ...instrument} = r;
+  const ov = (MARKET || {}).overview || {};
+  const market = MARKET ? {date: ov.date, mood: MARKET.mood, indices: (ov.indices || []).map(i => ({name: i.name, last: i.last, pct_change: i.pct_change})), fii_dii_cr: ov.fii_dii} : null;
+  const data = {kind: kind === "etf" ? "ETF" : "stock", prices_as_of: SCAN.date, instrument, swing_plan: swing, short_term: short, events, market,
+    user_settings: SCAN.settings, tested_evidence: evidenceText()};
+  return "Data from the scanner website (JSON):\n```json\n" + JSON.stringify(data) + "\n```";
+}
+const AI_SYSTEM = `You help an Indian retail investor who trades Nifty 50 stocks and NSE ETFs in the cash market (delivery only: no F&O, no intraday), mostly swing trades of 2 to 8 weeks.
+Answer only from the JSON data given. If something you need is not in it (news, company fundamentals, today's live price), say so instead of guessing.
+Write plain, simple English: short paragraphs or bullet points, under 250 words unless the user asks for more. Use ₹ and Indian number style (lakh, crore).
+When relevant, use the plan's entry, stop and targets, the position size, and the next results date with the stock's typical results move.
+Be honest that the scanner's signals were tested and have no proven edge (see tested_evidence), so a signal is a plan, not a prediction. Never promise returns. This is not investment advice.`;
+
+// the "Ask AI" panel under each stock / ETF
+const CHAT = {};
+const QUICK = ["Explain this swing plan simply", "What are the main risks?", "Should I wait for the results?", "Swing vs short-term view: which fits now?"];
+function aiPanel(kind, code) {
+  const what = kind === "etf" ? "ETF" : "stock";
+  if (!AI) return `<div class="panel" id="aip-${kind}"><h2>Ask AI about ${esc(code)}</h2>
+    <div class="small mute">Add your own AI key (OpenAI, Claude, Gemini or another provider) to ask questions about this ${what} in plain English.</div>
+    <button class="btn" style="margin-top:8px" onclick="openAiSettings()">Add your AI key</button></div>`;
+  const th = CHAT[kind + ":" + code] || [];
+  return `<div class="panel" id="aip-${kind}"><h2>Ask AI about ${esc(code)} <span class="chip ok">${esc(PROVIDERS[AI.provider].label.split(" (")[0].split(",")[0])} · ${esc(AI.model)}</span></h2>
+    <div class="chat">${th.map(m => `<div class="msg ${m.role}">${m.role === "user" ? esc(m.text) : mdHtml(m.text)}</div>`).join("")}</div>
+    <div class="row" style="margin-top:8px"><input type="text" class="aiq" style="flex:1;min-width:200px" placeholder="${th.length ? "Ask a follow-up" : `Ask anything about this ${what}`}">
+      <button class="btn aiask">Ask</button>${th.length ? '<button class="btn ghost aireset">New chat</button>' : ""}</div>
+    ${th.length ? "" : `<div class="row" style="margin-top:6px">${QUICK.map(q => `<button class="btn ghost aiquick" style="padding:4px 10px;font-weight:500;font-size:12px">${esc(q)}</button>`).join("")}</div>`}
+    <div class="small mute aistatus" style="margin-top:6px">The AI sees only this site's data for ${esc(code)} (prices to ${esc(SCAN.date)}, plans, events, market mood, test results). It can be wrong. Not investment advice.</div></div>`;
+}
+function rerenderAi(kind, code) { const el = $("#aip-" + kind); if (!el) return; el.outerHTML = aiPanel(kind, code); wireAi(kind, code); }
+function refreshAiPanels() { if (SEL) rerenderAi("stock", SEL); if (ESEL) rerenderAi("etf", ESEL); }
+function wireAi(kind, code) {
+  const el = $("#aip-" + kind);
+  if (!el || !AI) return;
+  const key = kind + ":" + code;
+  const ask = async q => {
+    q = (q || "").trim();
+    if (!q || el.dataset.busy) return;
+    const th = CHAT[key] = CHAT[key] || [];
+    th.push({role: "user", text: q});
+    rerenderAi(kind, code);
+    const box = $("#aip-" + kind);
+    box.dataset.busy = "1"; box.querySelectorAll("button,input").forEach(x => x.disabled = true);
+    box.querySelector(".aistatus").textContent = "Thinking…";
+    const msgs = th.map((m, i) => ({role: m.role, text: i === 0 ? aiContext(kind, code) + "\n\nQuestion: " + m.text : m.text}));
+    let err = null;
+    try { th.push({role: "assistant", text: await aiCall(AI, AI_SYSTEM, msgs)}); } catch (e) { th.pop(); err = e.message; }
+    if (!th.length) delete CHAT[key];
+    rerenderAi(kind, code);
+    if (err) { const b = $("#aip-" + kind); b.querySelector(".aiq").value = q; b.querySelector(".aistatus").innerHTML = `<span class="down">AI error: ${esc(err)}</span>`; }
+  };
+  el.querySelector(".aiask").onclick = () => ask(el.querySelector(".aiq").value);
+  el.querySelector(".aiq").onkeydown = e => { if (e.key === "Enter") ask(e.target.value); };
+  el.querySelectorAll(".aiquick").forEach(b => b.onclick = () => ask(b.textContent));
+  const rs = el.querySelector(".aireset"); if (rs) rs.onclick = () => { delete CHAT[key]; rerenderAi(kind, code); };
+}
+function renderChips() {
+  const prov = AI ? PROVIDERS[AI.provider].label.split(" (")[0].split(",")[0] : "";
+  const aiChip = AI ? `<button class="chip ok chipbtn" onclick="openAiSettings()" title="Change or remove your AI key">Your AI: ${esc(prov)} ${esc(AI.model)}</button>`
+    : `<button class="chip warn chipbtn" onclick="openAiSettings()">Add your AI key</button>`;
+  $("#chips").innerHTML = aiChip + ((META.problems || []).length
+    ? ` <span class="chip" title="${esc(META.problems.join("\n"))}">${META.problems.length} data note${META.problems.length > 1 ? "s" : ""} (see the bottom of the page)</span>` : "");
+}
+const IDX_NAMES = {"NIFTY 50": "Nifty 50", "SENSEX": "Sensex", "NIFTY BANK": "Nifty Bank", "NIFTY MIDCAP 100": "Nifty Midcap 100",
+  "NIFTY SMALLCAP 250": "Nifty Smallcap 250", "NIFTY 500": "Nifty 500", "INDIA VIX": "India VIX (fear gauge)"};
+function renderMast() {
+  if (META.data_date) {
+    const d = new Date(META.data_date + "T00:00:00").toLocaleDateString("en-IN", {weekday: "long", day: "numeric", month: "long", year: "numeric"});
+    $("#asof").textContent = `Prices to the close on ${d}`;
+  }
+  const ov = (MARKET || {}).overview || {}, mood = (MARKET || {}).mood || {};
+  const idx = (ov.indices || []).filter(i => IDX_NAMES[i.name]);
+  $("#board").innerHTML = idx.map(i => `<div><span>${esc(IDX_NAMES[i.name])}</span><b>${n(i.last)}</b>
+    <i class="${i.name === "INDIA VIX" ? "" : i.pct_change > 0 ? "u" : i.pct_change < 0 ? "d" : ""}">${i.pct_change > 0 ? "+" : ""}${n(i.pct_change)}%</i></div>`).join("");
+  const parts = [];
+  if (mood.score != null) parts.push(`Market mood is <b>${esc((mood.light || "").replace(/^[^A-Za-z]+/, "").toLowerCase())}</b>, ${mood.score} out of 100.`);
+  const flow = c => (ov.fii_dii || []).find(f => (f.category || "").startsWith(c));
+  const fii = flow("FII"), dii = flow("DII");
+  const fl = (who, f) => f && f.net_cr != null ? `${who} ${f.net_cr >= 0 ? "bought" : "sold"} a net ₹${n(Math.abs(f.net_cr), 0)} Cr` : "";
+  const flows = [fl("Foreign investors", fii), fl("Indian funds", dii)].filter(Boolean);
+  if (flows.length) parts.push(flows.join(" and ") + ".");
+  if (SCAN) {
+    const buys = SCAN.stocks.filter(r => r.swing.signal === "Buy").length;
+    parts.push(`<b>${buys}</b> of the ${SCAN.stocks.length} Nifty 500 stocks have a swing setup today.`);
+  }
+  $("#daysum").innerHTML = parts.join(" ");
+}
+
+// ---- local refresh (only when this page is served by the local server, not on GitHub Pages) ------------------------------------
+async function detectLocal() {
+  if (!["localhost", "127.0.0.1"].includes(location.hostname)) return;     // GitHub Pages: no server, no refresh button
+  try {
+    const h = await (await fetch("api/v1/health")).json();
+    if (h.status !== "ok") return;
+    $("#local").innerHTML = `<button class="btn" id="rebuild">Refresh data</button> <span class="small mute" id="rmsg"></span>`;
+    $("#rebuild").onclick = async () => {
+      $("#rebuild").disabled = true; $("#rmsg").textContent = "Building… (about 2–4 minutes)";
+      const t = await (await fetch("api/v1/build-site", {method: "POST"})).json();
+      for (;;) { await new Promise(r => setTimeout(r, 3000)); const s = await (await fetch("api/v1/tasks/" + t.task_id)).json(); $("#rmsg").textContent = s.message || "";
+        if (s.status !== "running") { if (s.status === "done") location.reload(); else { $("#rmsg").textContent = "Failed: " + s.error; $("#rebuild").disabled = false; } return; } }
+    };
+  } catch (e) {}
+}
+
+// ---- start --------------------------------------------------------------------------------------------------------------
+(async () => {
+  try { META = await J("data/meta.json"); } catch (e) {
+    $("#t-scan").innerHTML = `<div class="panel empty">No data yet. Run <code>python main.py --build-site</code> (or wait for the daily GitHub run).</div>`; detectLocal(); return; }
+  const [scan, an, ev, bt, mk] = await Promise.allSettled([J("data/scan.json"), J("data/analysis.json"), J("data/evidence.json"), J("data/backtest.json"), J("data/market.json")]);
+  SCAN = scan.value || null; ANALYSIS = an.value || {}; EVID = ev.value || {}; BT = bt.value || {}; MARKET = mk.value || null;
+  renderChips(); renderMast();
+  $("#foot").innerHTML = `${(META.problems || []).length ? `<b>Data notes:</b> ${esc(META.problems.join(" · "))}<br>` : ""}
+    Built ${esc(META.generated_ist || "")}. Prices: Yahoo Finance (end of day). Events: NSE, Yahoo. Built automatically after the NSE close. For information and research, not investment advice.`;
+  fillUnivSelects();
+  setStyle(STYLE === "short" ? "short" : "swing");
+  renderEtfs(); renderEvents(); renderMarket(MARKET); renderWatch(); renderEvidence();
+
+  showTab(TABS.includes(store.get("dsa_tab", "scan")) ? store.get("dsa_tab", "scan") : "scan");
+  detectLocal();
+})();
+</script>
+</body>
+</html>

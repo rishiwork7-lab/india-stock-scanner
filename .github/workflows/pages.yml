@@ -1,0 +1,62 @@
+name: Daily scanner website
+
+# Builds the static website (Nifty 50 + ETF scanner, events, market review, watchlist) after the NSE close and publishes
+# it with GitHub Pages. One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+on:
+  schedule:
+    - cron: '0 13 * * 1-5'     # 13:00 UTC = 18:30 IST, Mon-Fri (after NSE publishes the day's files)
+  workflow_dispatch:           # "Run workflow" button on the Actions tab: rebuild now
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      # data/ holds the analysis history (for the live record), NSE files and event caches; kept between daily runs
+      - uses: actions/cache@v4
+        with:
+          path: data
+          key: data-${{ github.run_id }}
+          restore-keys: data-
+      - name: Build site
+        env:
+          STOCK_LIST: ${{ vars.STOCK_LIST || 'RELIANCE,TCS,HDFCBANK,INFY' }}
+          TRADING_STYLE: ${{ vars.TRADING_STYLE || 'swing' }}
+          CAPITAL: ${{ vars.CAPITAL || '100000' }}
+          RISK_PER_TRADE_PCT: ${{ vars.RISK_PER_TRADE_PCT || '1.0' }}
+          LLM_PROVIDER_ORDER: ${{ vars.LLM_PROVIDER_ORDER || 'openai,anthropic,gemini' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL || 'https://api.openai.com/v1' }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TAVILY_API_KEYS: ${{ secrets.TAVILY_API_KEYS }}
+        run: python main.py --build-site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

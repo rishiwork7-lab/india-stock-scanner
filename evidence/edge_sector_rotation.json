@@ -1,0 +1,217 @@
+{
+ "test": "E3 sector rotation (top 3 of 12 by 3+6 month momentum, monthly)",
+ "pre_registered": "research/EDGE_RESEARCH.md",
+ "trials": 2,
+ "cost_per_side_pct": 0.15,
+ "bad_prints_removed": [
+  {
+   "series": "^CNXPSUBANK",
+   "date": "2017-10-25",
+   "move_pct": 29.6
+  }
+ ],
+ "series_start": {
+  "Bank": "2010-01-04",
+  "PSU Bank": "2011-01-31",
+  "IT": "2010-01-04",
+  "Pharma": "2011-01-31",
+  "Auto": "2011-07-12",
+  "FMCG": "2011-01-31",
+  "Metal": "2011-07-12",
+  "Realty": "2010-07-19",
+  "Energy": "2011-01-31",
+  "PSE": "2011-01-31",
+  "Infra": "2010-07-19",
+  "Financial Services": "2011-09-07",
+  "Nifty 50": "2010-01-04"
+ },
+ "A_top3": {
+  "months": 183,
+  "from": "2011-08-30",
+  "to": "2026-11-13",
+  "strategy_cagr_pct": 10.57,
+  "nifty_cagr_pct": 11.36,
+  "strategy_max_dd_pct": -48.9,
+  "nifty_max_dd_pct": -29.3,
+  "avg_monthly_excess_pct": 0.007,
+  "t_monthly_excess": 0.03,
+  "months_beating_nifty_pct": 49.7,
+  "avg_turnover_per_month": 0.6,
+  "cash_months": 0,
+  "first_half": {
+   "from": "2011-08",
+   "to": "2019-04",
+   "strategy_cagr_pct": 7.07,
+   "nifty_cagr_pct": 12.1
+  },
+  "second_half": {
+   "from": "2019-04",
+   "to": "2026-11",
+   "strategy_cagr_pct": 13.54,
+   "nifty_cagr_pct": 10.53
+  },
+  "by_year": {
+   "2011": {
+    "strategy_pct": -1.9,
+    "nifty_pct": -7.5
+   },
+   "2012": {
+    "strategy_pct": 21.9,
+    "nifty_pct": 27.7
+   },
+   "2013": {
+    "strategy_pct": -2.9,
+    "nifty_pct": 6.8
+   },
+   "2014": {
+    "strategy_pct": 7.3,
+    "nifty_pct": 31.4
+   },
+   "2015": {
+    "strategy_pct": -14.5,
+    "nifty_pct": -4.1
+   },
+   "2016": {
+    "strategy_pct": 18.5,
+    "nifty_pct": 3.0
+   },
+   "2017": {
+    "strategy_pct": 38.6,
+    "nifty_pct": 28.6
+   },
+   "2018": {
+    "strategy_pct": -8.0,
+    "nifty_pct": 3.2
+   },
+   "2019": {
+    "strategy_pct": 1.0,
+    "nifty_pct": 12.0
+   },
+   "2020": {
+    "strategy_pct": 0.2,
+    "nifty_pct": 14.9
+   },
+   "2021": {
+    "strategy_pct": 30.4,
+    "nifty_pct": 24.1
+   },
+   "2022": {
+    "strategy_pct": 15.9,
+    "nifty_pct": 4.3
+   },
+   "2023": {
+    "strategy_pct": 33.9,
+    "nifty_pct": 20.0
+   },
+   "2024": {
+    "strategy_pct": 28.8,
+    "nifty_pct": 8.8
+   },
+   "2025": {
+    "strategy_pct": 15.0,
+    "nifty_pct": 10.5
+   },
+   "2026": {
+    "strategy_pct": -9.0,
+    "nifty_pct": -3.8
+   }
+  },
+  "latest_holdings": "IT,Pharma,Bank",
+  "verdict": "FAIL"
+ },
+ "B_top3_cash_when_nifty_below_200dma": {
+  "months": 183,
+  "from": "2011-08-30",
+  "to": "2026-11-13",
+  "strategy_cagr_pct": 10.94,
+  "nifty_cagr_pct": 11.36,
+  "strategy_max_dd_pct": -23.1,
+  "nifty_max_dd_pct": -29.3,
+  "avg_monthly_excess_pct": -0.031,
+  "t_monthly_excess": -0.09,
+  "months_beating_nifty_pct": 50.8,
+  "avg_turnover_per_month": 0.54,
+  "cash_months": 52,
+  "first_half": {
+   "from": "2011-08",
+   "to": "2019-04",
+   "strategy_cagr_pct": 3.01,
+   "nifty_cagr_pct": 12.1
+  },
+  "second_half": {
+   "from": "2019-04",
+   "to": "2026-11",
+   "strategy_cagr_pct": 18.87,
+   "nifty_cagr_pct": 10.53
+  },
+  "by_year": {
+   "2011": {
+    "strategy_pct": 2.0,
+    "nifty_pct": -7.5
+   },
+   "2012": {
+    "strategy_pct": 9.3,
+    "nifty_pct": 27.7
+   },
+   "2013": {
+    "strategy_pct": -7.8,
+    "nifty_pct": 6.8
+   },
+   "2014": {
+    "strategy_pct": 7.3,
+    "nifty_pct": 31.4
+   },
+   "2015": {
+    "strategy_pct": -10.1,
+    "nifty_pct": -4.1
+   },
+   "2016": {
+    "strategy_pct": 20.1,
+    "nifty_pct": 3.0
+   },
+   "2017": {
+    "strategy_pct": 26.9,
+    "nifty_pct": 28.6
+   },
+   "2018": {
+    "strategy_pct": -12.7,
+    "nifty_pct": 3.2
+   },
+   "2019": {
+    "strategy_pct": -1.3,
+    "nifty_pct": 12.0
+   },
+   "2020": {
+    "strategy_pct": 20.6,
+    "nifty_pct": 14.9
+   },
+   "2021": {
+    "strategy_pct": 30.4,
+    "nifty_pct": 24.1
+   },
+   "2022": {
+    "strategy_pct": 17.6,
+    "nifty_pct": 4.3
+   },
+   "2023": {
+    "strategy_pct": 26.2,
+    "nifty_pct": 20.0
+   },
+   "2024": {
+    "strategy_pct": 28.8,
+    "nifty_pct": 8.8
+   },
+   "2025": {
+    "strategy_pct": 18.4,
+    "nifty_pct": 10.5
+   },
+   "2026": {
+    "strategy_pct": 4.0,
+    "nifty_pct": -3.8
+   }
+  },
+  "latest_holdings": "cash",
+  "verdict": "FAIL"
+ },
+ "note_on_bad_prints": "The one move flagged (PSU Bank +29.6% on 2017-10-25) was real: the government's bank recapitalisation announcement. The cleaning step only shifts it to the next day (inside the same month), so monthly results are unchanged."
+}

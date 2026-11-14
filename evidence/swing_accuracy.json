@@ -1,0 +1,343 @@
+{
+ "signals": 80350,
+ "from": "2022-12-02",
+ "to": "2026-09-11",
+ "matrix": {
+  "ALL signals": {
+   "n": 80350,
+   "avg_risk_pct": 6.74,
+   "t1_before_stop_pct": 30.8,
+   "t2_before_stop_pct": 18.1,
+   "stop_first_pct": 54.0,
+   "timed_out_pct": 15.2,
+   "avg_days_held_B": 21.6,
+   "avg_index_return_same_days": 0.51,
+   "A_all_at_T2": {
+    "win_rate_pct": 38.6,
+    "avg_return_pct": 1.03,
+    "avg_R": 0.19,
+    "vs_nifty500_pct": 0.53
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 41.2,
+    "avg_return_pct": 0.8,
+    "avg_R": 0.15,
+    "vs_nifty500_pct": 0.29
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 41.3,
+    "avg_return_pct": 0.66,
+    "avg_R": 0.13,
+    "vs_nifty500_pct": 0.15
+   }
+  },
+  "signal=Buy": {
+   "n": 21320,
+   "avg_risk_pct": 6.51,
+   "t1_before_stop_pct": 31.8,
+   "t2_before_stop_pct": 18.9,
+   "stop_first_pct": 52.2,
+   "timed_out_pct": 16.0,
+   "avg_days_held_B": 22.2,
+   "avg_index_return_same_days": 0.59,
+   "A_all_at_T2": {
+    "win_rate_pct": 40.5,
+    "avg_return_pct": 1.33,
+    "avg_R": 0.25,
+    "vs_nifty500_pct": 0.74
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 42.9,
+    "avg_return_pct": 1.05,
+    "avg_R": 0.21,
+    "vs_nifty500_pct": 0.46
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 42.9,
+    "avg_return_pct": 0.88,
+    "avg_R": 0.18,
+    "vs_nifty500_pct": 0.29
+   }
+  },
+  "signal=Watch": {
+   "n": 32207,
+   "avg_risk_pct": 7.08,
+   "t1_before_stop_pct": 32.1,
+   "t2_before_stop_pct": 19.6,
+   "stop_first_pct": 53.0,
+   "timed_out_pct": 14.9,
+   "avg_days_held_B": 21.4,
+   "avg_index_return_same_days": 0.63,
+   "A_all_at_T2": {
+    "win_rate_pct": 39.7,
+    "avg_return_pct": 1.44,
+    "avg_R": 0.24,
+    "vs_nifty500_pct": 0.81
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 42.5,
+    "avg_return_pct": 1.15,
+    "avg_R": 0.2,
+    "vs_nifty500_pct": 0.52
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 42.5,
+    "avg_return_pct": 0.95,
+    "avg_R": 0.17,
+    "vs_nifty500_pct": 0.33
+   }
+  },
+  "signal=Avoid": {
+   "n": 26823,
+   "avg_risk_pct": 6.52,
+   "t1_before_stop_pct": 28.4,
+   "t2_before_stop_pct": 15.7,
+   "stop_first_pct": 56.6,
+   "timed_out_pct": 15.0,
+   "avg_days_held_B": 21.2,
+   "avg_index_return_same_days": 0.3,
+   "A_all_at_T2": {
+    "win_rate_pct": 35.7,
+    "avg_return_pct": 0.31,
+    "avg_R": 0.07,
+    "vs_nifty500_pct": 0.01
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 38.5,
+    "avg_return_pct": 0.18,
+    "avg_R": 0.05,
+    "vs_nifty500_pct": -0.12
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 38.5,
+    "avg_return_pct": 0.13,
+    "avg_R": 0.05,
+    "vs_nifty500_pct": -0.17
+   }
+  },
+  "Buy + pullback": {
+   "n": 14739,
+   "avg_risk_pct": 6.06,
+   "t1_before_stop_pct": 33.2,
+   "t2_before_stop_pct": 20.0,
+   "stop_first_pct": 53.4,
+   "timed_out_pct": 13.4,
+   "avg_days_held_B": 21.2,
+   "avg_index_return_same_days": 0.53,
+   "A_all_at_T2": {
+    "win_rate_pct": 39.9,
+    "avg_return_pct": 1.25,
+    "avg_R": 0.25,
+    "vs_nifty500_pct": 0.72
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 42.6,
+    "avg_return_pct": 1.01,
+    "avg_R": 0.21,
+    "vs_nifty500_pct": 0.48
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 42.7,
+    "avg_return_pct": 0.86,
+    "avg_R": 0.19,
+    "vs_nifty500_pct": 0.33
+   }
+  },
+  "Buy + breakout": {
+   "n": 1940,
+   "avg_risk_pct": 7.62,
+   "t1_before_stop_pct": 27.5,
+   "t2_before_stop_pct": 16.4,
+   "stop_first_pct": 48.0,
+   "timed_out_pct": 24.5,
+   "avg_days_held_B": 24.5,
+   "avg_index_return_same_days": 0.77,
+   "A_all_at_T2": {
+    "win_rate_pct": 42.6,
+    "avg_return_pct": 1.66,
+    "avg_R": 0.26,
+    "vs_nifty500_pct": 0.89
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 43.9,
+    "avg_return_pct": 1.27,
+    "avg_R": 0.2,
+    "vs_nifty500_pct": 0.5
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 43.9,
+    "avg_return_pct": 0.97,
+    "avg_R": 0.17,
+    "vs_nifty500_pct": 0.21
+   }
+  },
+  "Buy + tight_base": {
+   "n": 4641,
+   "avg_risk_pct": 7.49,
+   "t1_before_stop_pct": 29.1,
+   "t2_before_stop_pct": 16.6,
+   "stop_first_pct": 50.0,
+   "timed_out_pct": 20.9,
+   "avg_days_held_B": 24.3,
+   "avg_index_return_same_days": 0.71,
+   "A_all_at_T2": {
+    "win_rate_pct": 41.6,
+    "avg_return_pct": 1.42,
+    "avg_R": 0.23,
+    "vs_nifty500_pct": 0.71
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 43.3,
+    "avg_return_pct": 1.11,
+    "avg_R": 0.19,
+    "vs_nifty500_pct": 0.4
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 43.3,
+    "avg_return_pct": 0.88,
+    "avg_R": 0.16,
+    "vs_nifty500_pct": 0.17
+   }
+  },
+  "Buy in 2022": {
+   "n": 507,
+   "avg_risk_pct": 6.21,
+   "t1_before_stop_pct": 17.6,
+   "t2_before_stop_pct": 7.9,
+   "stop_first_pct": 71.4,
+   "timed_out_pct": 11.0,
+   "avg_days_held_B": 18.9,
+   "avg_index_return_same_days": -2.9,
+   "A_all_at_T2": {
+    "win_rate_pct": 20.7,
+    "avg_return_pct": -2.63,
+    "avg_R": -0.41,
+    "vs_nifty500_pct": 0.27
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 23.9,
+    "avg_return_pct": -2.51,
+    "avg_R": -0.38,
+    "vs_nifty500_pct": 0.39
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 23.9,
+    "avg_return_pct": -2.32,
+    "avg_R": -0.35,
+    "vs_nifty500_pct": 0.59
+   }
+  },
+  "Buy in 2023": {
+   "n": 6975,
+   "avg_risk_pct": 6.31,
+   "t1_before_stop_pct": 43.9,
+   "t2_before_stop_pct": 29.2,
+   "stop_first_pct": 38.8,
+   "timed_out_pct": 17.4,
+   "avg_days_held_B": 24.1,
+   "avg_index_return_same_days": 2.65,
+   "A_all_at_T2": {
+    "win_rate_pct": 54.9,
+    "avg_return_pct": 4.44,
+    "avg_R": 0.75,
+    "vs_nifty500_pct": 1.79
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 56.5,
+    "avg_return_pct": 3.8,
+    "avg_R": 0.65,
+    "vs_nifty500_pct": 1.15
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 56.5,
+    "avg_return_pct": 3.27,
+    "avg_R": 0.57,
+    "vs_nifty500_pct": 0.61
+   }
+  },
+  "Buy in 2024": {
+   "n": 6113,
+   "avg_risk_pct": 6.94,
+   "t1_before_stop_pct": 28.2,
+   "t2_before_stop_pct": 16.2,
+   "stop_first_pct": 60.0,
+   "timed_out_pct": 11.8,
+   "avg_days_held_B": 19.9,
+   "avg_index_return_same_days": -0.07,
+   "A_all_at_T2": {
+    "win_rate_pct": 33.0,
+    "avg_return_pct": -0.02,
+    "avg_R": 0.03,
+    "vs_nifty500_pct": 0.05
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 36.3,
+    "avg_return_pct": -0.18,
+    "avg_R": 0.01,
+    "vs_nifty500_pct": -0.11
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 36.3,
+    "avg_return_pct": -0.18,
+    "avg_R": 0.01,
+    "vs_nifty500_pct": -0.11
+   }
+  },
+  "Buy in 2025": {
+   "n": 4607,
+   "avg_risk_pct": 6.21,
+   "t1_before_stop_pct": 25.2,
+   "t2_before_stop_pct": 12.4,
+   "stop_first_pct": 54.9,
+   "timed_out_pct": 19.9,
+   "avg_days_held_B": 23.1,
+   "avg_index_return_same_days": 0.06,
+   "A_all_at_T2": {
+    "win_rate_pct": 36.2,
+    "avg_return_pct": -0.13,
+    "avg_R": 0.03,
+    "vs_nifty500_pct": -0.19
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 38.5,
+    "avg_return_pct": -0.15,
+    "avg_R": 0.03,
+    "vs_nifty500_pct": -0.21
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 38.6,
+    "avg_return_pct": -0.15,
+    "avg_R": 0.03,
+    "vs_nifty500_pct": -0.2
+   }
+  },
+  "Buy in 2026": {
+   "n": 3118,
+   "avg_risk_pct": 6.61,
+   "t1_before_stop_pct": 24.0,
+   "t2_before_stop_pct": 12.9,
+   "stop_first_pct": 59.6,
+   "timed_out_pct": 16.4,
+   "avg_days_held_B": 21.7,
+   "avg_index_return_same_days": -1.37,
+   "A_all_at_T2": {
+    "win_rate_pct": 32.9,
+    "avg_return_pct": -0.21,
+    "avg_R": -0.04,
+    "vs_nifty500_pct": 1.16
+   },
+   "B_half_T1_half_T2": {
+    "win_rate_pct": 35.0,
+    "avg_return_pct": -0.3,
+    "avg_R": -0.05,
+    "vs_nifty500_pct": 1.07
+   },
+   "C_all_at_T1": {
+    "win_rate_pct": 35.1,
+    "avg_return_pct": -0.36,
+    "avg_R": -0.06,
+    "vs_nifty500_pct": 1.01
+   }
+  }
+ }
+}
