@@ -40,6 +40,7 @@ jobs:
         env:
           STOCK_LIST: ${{ vars.STOCK_LIST || 'RELIANCE,TCS,HDFCBANK,INFY' }}
           TRADING_STYLE: ${{ vars.TRADING_STYLE || 'swing' }}
+          SITE_URL: https://rishiwork7-lab.github.io/india-stock-scanner
           CAPITAL: ${{ vars.CAPITAL || '100000' }}
           RISK_PER_TRADE_PCT: ${{ vars.RISK_PER_TRADE_PCT || '1.0' }}
           LLM_PROVIDER_ORDER: ${{ vars.LLM_PROVIDER_ORDER || 'openai,anthropic,gemini' }}

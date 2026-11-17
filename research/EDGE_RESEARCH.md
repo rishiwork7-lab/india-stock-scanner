@@ -59,3 +59,64 @@ open after the signal.
 - **Data checks:** daily moves above 25% in an index series are treated as bad prints and reported.
 
 Results are written to `evidence/edge_*.json` and shown on the website's Evidence tab.
+
+## E4. Momentum portfolio (added 2026-11-17, before the test was run)
+
+- **Why:** E1's side result: stocks the swing score rates "Watch" (mostly in uptrends) beat the average stock by
+  +0.31% over 20 sessions (t 4.2). Momentum is the best documented stock-selection effect worldwide and in India (NSE
+  runs a Nifty 200 Momentum 30 index). This test asks whether a simple version would have paid here, after costs.
+- **Data:** the same 5-year cache (2021-11 → 2026-11); with a 12-month look-back the first rebalance is late 2022, so
+  about 48 monthly holding periods. Today's Nifty 500 members only (see the bias note below).
+- **Eligible stocks at each rebalance:** at least 260 sessions of history and a 60-session median traded value
+  (close × volume) of at least ₹10 crore. Only data up to the rebalance close is used.
+- **Rule A (classic 12-1):** at each month's last session, rank by the return from 252 sessions ago to 21 sessions ago;
+  hold the top 20, equal weight, bought at the next session's open, until the next rebalance.
+- **Rule B (NSE-style):** the same, but rank by the average of two z-scores across eligible stocks: 6-month return ÷
+  1-year volatility and 12-month return ÷ 1-year volatility (the method of the Nifty 200 Momentum 30 index).
+- **Costs:** 0.25% per side on the value traded at each rebalance (0.30% round-trip charges plus 0.10% per side for
+  slippage); weights are reset to equal each month and only the changes are charged.
+- **Benchmarks:** (1) the equal-weight average of all eligible stocks, rebalanced monthly with no costs (the same
+  universe and bias, so this is the main test of stock selection); (2) the Nifty 500 index held throughout.
+- **Pass (all needed, for A and B separately):** monthly excess return over benchmark (1) > 0 in both halves and t ≥ 2
+  overall; annual return above the Nifty 500 index in both halves; maximum drawdown no more than 5 percentage points
+  worse than the Nifty 500's.
+- **Trials:** 2 (A and B). Nothing else is tried in this round.
+- **Bias note:** stocks that fell out of the Nifty 500 are missing. This flatters momentum (some past winners that later
+  crashed are gone), so a pass here is necessary but not enough.
+- **Real-world check (descriptive, no survivorship bias):** the Aditya Birla Nifty 200 Momentum 30 ETF (MOMENTUM.NS, traded
+  since 2022-08) against the Nifty 200 index (^CNX200) over the same months: annual return, drawdown, and each half.
+  The ETF includes dividends and fund costs; the index is a price index (about 1.2% a year of dividends missing).
+- **Tax (descriptive):** monthly rotation makes gains short-term (20% tax) while holding an index fund over a year is
+  long-term (12.5%); an approximate after-tax figure is reported, not used for the verdict.
+
+### E4 result (run 2026-11-17): FAILED
+
+| | Per year | Average stock | Nifty 500 | vs average / month | t | Worst fall (vs Nifty 500) | Verdict |
+|---|---|---|---|---|---|---|---|
+| A: 12-1 month | 43.6% | 21.6% | 8.4% | +1.65% | 2.16 | −34.9% (−18.8%) | FAIL (drawdown) |
+| B: NSE-style | 28.8% | 21.6% | 8.4% | +0.63% | 0.91 | −30.0% (−18.8%) | FAIL (t, drawdown) |
+| Real ETF: Nifty 200 Momentum 30 vs Nifty 200, 2022-10 → 2026-11 | 11.6% | – | 11.5% (N200) | +0.06% | 0.16 | −30.8% (−18.1%) | check only |
+
+- Rule A passed three of four checks (both halves vs the average stock and the index, t ≥ 2) but fell 16 points more
+  than the index at worst. By the pre-registered rule it fails.
+- The survivorship bias is large: the average surviving stock shows 21.6% a year against 8.4% for the index. Momentum
+  benefits most from it, so the 43.6% is not a real-world number.
+- The bias-free check agrees: the real momentum fund matched the Nifty 200 over 4 years (won 2022–24, lost 2024–26)
+  with a far deeper fall.
+- Not promoted to the website as a signal. Testing it properly needs point-in-time index membership (stocks that left
+  the Nifty 500), which we do not have.
+
+## P1. ₹1 lakh model portfolio: a forward test (written 2026-11-17, before the first run)
+
+- **Why:** the owner asked for five holdings and a percentage for each, for ₹1 lakh. No tested rule has proven an edge
+  (E1–E4), so the mix is built around the index and judged only on its live record from here on.
+- **Holdings:** 40% NIFTYBEES (core), 10% GOLDBEES (cushion), 3 × 16.7% Nifty 500 stocks. A stock must have swing
+  signal Buy, at least ₹10 crore traded a day, no results in the next 5 sessions, ATR at most 5% of the price, and fresh
+  data. At most one stock per industry; the highest 12-1 month return wins (E4 rule A). Empty slots stay in cash.
+- **Paper record (`src/portfolio.py`):** ₹1,00,000 from the first build, whole shares at the close, rebalanced on the
+  first build of each month; a held stock stays while it ranks in the top 10 that pass. Charges are 0.25% per side for
+  stocks and 0.15% for ETFs. No stop-losses inside the month.
+- **Yardstick:** ₹1,00,000 in NIFTYBEES on the same day, held.
+- **Verdict after 12 months:** it counts as working only if it beats the yardstick after charges with a worst fall no
+  more than 5 points deeper. Before 12 months, the record is information, not proof.
+- **Rules are frozen:** any change starts a new version (P2) with a fresh record; P1's record is kept.

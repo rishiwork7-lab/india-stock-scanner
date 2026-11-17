@@ -8,12 +8,14 @@
   site/data/analysis.json         full analysis of the watchlist (STOCK_LIST), swing and short-term styles
   site/data/evidence.json         historical checks (tools/swing_check.py, tools/swing_metrics.py)
   site/data/backtest.json         how past stored calls turned out (src/backtest.py)
+  site/data/portfolio.json        today's 5 picks for ₹1 lakh and the paper record that follows them (src/portfolio.py)
 Run: python main.py --build-site   (the GitHub workflow runs this every trading day after the close)
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
@@ -21,6 +23,7 @@ from typing import Callable, Dict, List, Optional
 import pandas as pd
 
 from .delivery import analyze_delivery
+from . import portfolio as pf
 from .events import EventService
 from .india.market import now_ist
 from .india.symbols import parse_list, parse_symbol
@@ -52,9 +55,39 @@ def _dump(path: Path, obj) -> None:
     path.write_text(json.dumps(obj, default=str, separators=(",", ":")), encoding="utf-8")
 
 
+def _previous_state() -> Optional[Dict]:
+    """The paper record as last published, used when the local copy is gone (GitHub's cache expires after 7 idle days)."""
+    url = os.environ.get("SITE_URL", "").rstrip("/")
+    if not url:
+        return None
+    import requests
+    r = requests.get(f"{url}/data/portfolio.json", timeout=20)
+    return r.json().get("state") if r.status_code == 200 else None
+
+
+def build_portfolio(scan: Dict, state_file: Path, previous: Callable[[], Optional[Dict]], log: Callable[[str], None] = logger.info) -> Dict:
+    state = None
+    if state_file.exists():
+        state = json.loads(state_file.read_text())
+    else:
+        try:
+            state = previous()
+            if state:
+                log("model portfolio: restored the paper record from the published site")
+        except Exception as e:
+            log(f"model portfolio: no earlier record ({e}); starting a new one")
+    state = pf.step(state, scan)
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state_file.write_text(json.dumps(state, default=str))
+    return {"plan": pf.plan(scan), "record": pf.report(state, scan), "state": state,
+            "rules": {"core": pf.CORE, "cushion": pf.CUSHION, "stock_slots": pf.STOCK_SLOTS, "stock_weight_pct": round(pf.STOCK_WEIGHT * 100, 1),
+                      "min_traded_value_cr": pf.MIN_TV_CR, "max_atr_pct": pf.MAX_ATR_PCT, "results_block_sessions": pf.RESULTS_BLOCK,
+                      "keep_rank": pf.KEEP_RANK, "cost_pct": {k: v * 100 for k, v in pf.COST.items()}}}
+
+
 def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
                downloader: Callable = download_prices, log: Callable[[str], None] = logger.info,
-               event_yahoo: Optional[Callable] = None) -> Dict:
+               event_yahoo: Optional[Callable] = None, portfolio_prev: Optional[Callable] = None) -> Dict:
     cfg = app.config
     out_dir, data_dir = Path(out_dir), Path(out_dir) / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -96,6 +129,11 @@ def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
     if not any(s.startswith("NSE") for r in scan["stocks"] for s in (r.get("events") or {}).get("sources", [])):
         problems.append("NSE event calendar unavailable: results dates are Yahoo estimates")
     _dump(data_dir / "scan.json", scan)
+    try:
+        _dump(data_dir / "portfolio.json", build_portfolio(scan, base / "portfolio" / "state.json", portfolio_prev or _previous_state, log))
+    except Exception as e:                                                       # never stop the site for the paper record
+        logger.exception("portfolio")
+        problems.append(f"model portfolio failed: {e}")
     cdir = data_dir / "candles"
     if cdir.exists():
         shutil.rmtree(cdir)

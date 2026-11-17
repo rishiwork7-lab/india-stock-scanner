@@ -183,6 +183,8 @@ def test_build_site_writes_static_files(tmp_path, monkeypatch):
     analysis = json.loads((data / "analysis.json").read_text())
     assert analysis["swing"][0]["code"] == "RELIANCE" and analysis["short"][0]["style"] == "short"
     assert json.loads((data / "market.json").read_text())["mood"]
+    pf = json.loads((data / "portfolio.json").read_text())
+    assert pf["plan"]["holdings"][0]["code"] == "NIFTYBEES" and pf["record"]["start"] == "2026-11-13" and pf["state"]["history"]
     assert meta["stocks"] == 1 and json.loads((data / "meta.json").read_text())["data_date"] == "2026-11-13"
     candle = json.loads((data / "candles" / "UPCO.json").read_text())
     assert len(candle["time"]) == 260 == len(candle["close"]) and candle["ma200"][-1] is not None

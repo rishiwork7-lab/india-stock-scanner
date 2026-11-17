@@ -1,0 +1,136 @@
+{
+ "test": "E4 momentum portfolio",
+ "pre_registered": "research/EDGE_RESEARCH.md",
+ "top_n": 20,
+ "cost_per_side_pct": 0.25,
+ "min_traded_value_cr": 10.0,
+ "rules": {
+  "A": {
+   "months": 47,
+   "from": "2022-11-30",
+   "to": "2026-09-30",
+   "split_after": "2024-09-30",
+   "cagr_pct": 43.59,
+   "cagr_gross_pct": 46.52,
+   "universe_cagr_pct": 21.55,
+   "nifty500_cagr_pct": 8.43,
+   "excess_vs_universe_monthly_pct": 1.651,
+   "t_vs_universe": 2.16,
+   "max_dd_pct": -34.9,
+   "nifty500_max_dd_pct": -18.8,
+   "avg_turnover_pct": 33.4,
+   "win_months_vs_universe_pct": 61.7,
+   "halves": {
+    "first": {
+     "from": "2022-11-30",
+     "to": "2024-09-30",
+     "cagr_pct": 66.66,
+     "universe_cagr_pct": 45.25,
+     "nifty500_cagr_pct": 20.2,
+     "excess_vs_universe_monthly_pct": 1.494,
+     "t": 1.16
+    },
+    "second": {
+     "from": "2024-10-31",
+     "to": "2026-09-30",
+     "cagr_pct": 24.48,
+     "universe_cagr_pct": 2.48,
+     "nifty500_cagr_pct": -1.76,
+     "excess_vs_universe_monthly_pct": 1.802,
+     "t": 2.07
+    }
+   },
+   "approx_after_tax_cagr_pct": 35.55,
+   "nifty500_after_tax_cagr_pct": 7.48,
+   "checks": {
+    "beats_universe_both_halves": true,
+    "t_at_least_2": true,
+    "beats_nifty500_both_halves": true,
+    "drawdown_within_5pp": false
+   },
+   "verdict": "FAIL",
+   "label": "12-1 month return",
+   "distinct_stocks_held": 171
+  },
+  "B": {
+   "months": 47,
+   "from": "2022-11-30",
+   "to": "2026-09-30",
+   "split_after": "2024-09-30",
+   "cagr_pct": 28.79,
+   "cagr_gross_pct": 31.9,
+   "universe_cagr_pct": 21.55,
+   "nifty500_cagr_pct": 8.43,
+   "excess_vs_universe_monthly_pct": 0.633,
+   "t_vs_universe": 0.91,
+   "max_dd_pct": -30.0,
+   "nifty500_max_dd_pct": -18.8,
+   "avg_turnover_pct": 39.5,
+   "win_months_vs_universe_pct": 53.2,
+   "halves": {
+    "first": {
+     "from": "2022-11-30",
+     "to": "2024-09-30",
+     "cagr_pct": 54.05,
+     "universe_cagr_pct": 45.25,
+     "nifty500_cagr_pct": 20.2,
+     "excess_vs_universe_monthly_pct": 0.659,
+     "t": 0.68
+    },
+    "second": {
+     "from": "2024-10-31",
+     "to": "2026-09-30",
+     "cagr_pct": 8.48,
+     "universe_cagr_pct": 2.48,
+     "nifty500_cagr_pct": -1.76,
+     "excess_vs_universe_monthly_pct": 0.608,
+     "t": 0.6
+    }
+   },
+   "approx_after_tax_cagr_pct": 23.9,
+   "nifty500_after_tax_cagr_pct": 7.48,
+   "checks": {
+    "beats_universe_both_halves": true,
+    "t_at_least_2": false,
+    "beats_nifty500_both_halves": true,
+    "drawdown_within_5pp": false
+   },
+   "verdict": "FAIL",
+   "label": "NSE-style 6m+12m risk-adjusted",
+   "distinct_stocks_held": 214
+  }
+ },
+ "real_world_check": {
+  "etf": "Aditya Birla Sun Life Nifty 200 Momentum 30 ETF (MOMENTUM.NS)",
+  "benchmark": "Nifty 200 price index (^CNX200)",
+  "months": 50,
+  "from": "2022-10",
+  "to": "2026-11",
+  "etf_cagr_pct": 11.63,
+  "nifty200_cagr_pct": 11.51,
+  "t": 0.16,
+  "excess_monthly_pct": 0.057,
+  "etf_max_dd_pct": -30.8,
+  "nifty200_max_dd_pct": -18.1,
+  "halves": {
+   "first": {
+    "from": "2022-10",
+    "to": "2024-10",
+    "etf_cagr_pct": 32.76,
+    "nifty200_cagr_pct": 21.05,
+    "t": 1.93
+   },
+   "second": {
+    "from": "2024-11",
+    "to": "2026-11",
+    "etf_cagr_pct": -6.14,
+    "nifty200_cagr_pct": 2.73,
+    "t": -1.31
+   }
+  }
+ },
+ "verdict": {
+  "A": "FAIL",
+  "B": "FAIL"
+ }
+}

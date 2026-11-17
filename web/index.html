@@ -116,6 +116,11 @@ td.nw{white-space:nowrap}td .sub{display:block;font-size:12.5px;color:var(--mute
 details summary{cursor:pointer;color:var(--indigo-2);font-weight:600}
 
 /* market, watchlist, AI */
+.alloc{display:flex;height:34px;border-radius:8px;overflow:hidden;margin:4px 0 8px;background:var(--line-2)}
+.alloc span{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;min-width:0}
+.plan td{vertical-align:top}.plan .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:7px;vertical-align:-1px}
+.plan .why{color:var(--mute);font-size:13.5px;max-width:60ch;margin-top:2px}.plan .big{font-size:20px;font-weight:700;font-stretch:80%;color:var(--indigo)}
+.recchart{height:260px;margin:6px 0 4px}.show-s{display:none}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 13px}.tile>span{display:block;color:var(--mute);font-size:13px}
 .tile b{display:block;font-size:24px;font-weight:700;font-stretch:78%;line-height:1.15}.tile i{font-style:normal;color:var(--mute);font-size:13px}
@@ -143,7 +148,7 @@ footer{max-width:1440px;margin:0 auto;padding:6px 20px 28px;color:var(--mute);fo
 }
 @media(min-width:1180px){.hide-m{display:none}}
 @media(min-width:1180px) and (max-width:1399px){.hide-l{display:none}}
-@media(max-width:640px){main{padding:12px}.mast-in{padding:14px 14px 0}.grid2{grid-template-columns:1fr}.hide-s{display:none}
+@media(max-width:640px){main{padding:12px}.mast-in{padding:14px 14px 0}.grid2{grid-template-columns:1fr}.hide-s{display:none}.show-s{display:block}.alloc{height:18px}.alloc span{font-size:0}
   .board{display:flex;overflow-x:auto;gap:22px;scrollbar-width:none}.board>div{flex:none;padding-right:0}.board b{font-size:22px}.ask{font-size:18px}.ask select.univ{font-size:19px}.ask #q{margin-left:0;width:100%}.panel{padding:14px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style>
@@ -158,7 +163,7 @@ footer{max-width:1440px;margin:0 auto;padding:6px 20px 28px;color:var(--mute);fo
   <p class="daysum" id="daysum"></p>
 </div></header>
 <nav id="tabs"><div class="in">
-  <button data-t="scan" class="on">Scanner</button><button data-t="etf">ETFs</button><button data-t="events">Events</button>
+  <button data-t="scan" class="on">Scanner</button><button data-t="port">₹1 lakh plan</button><button data-t="etf">ETFs</button><button data-t="events">Events</button>
   <button data-t="market">Market</button><button data-t="watch">Watchlist (AI)</button><button data-t="evidence">Evidence</button>
 </div></nav>
 <main>
@@ -193,6 +198,8 @@ footer{max-width:1440px;margin:0 auto;padding:6px 20px 28px;color:var(--mute);fo
   </div>
 </section>
 
+<section id="t-port" hidden><div id="port"><div class="panel empty">Loading…</div></div></section>
+
 <section id="t-etf" hidden>
   <div id="etfs"></div>
   <div id="edetail"></div>
@@ -226,17 +233,21 @@ async function J(path) { const r = await fetch(path, {cache: "no-cache"}); if (!
 const price = s => { if (s == null) return null; if (typeof s === "number") return s; const m = String(s).replace(/MA\d+/g, " ").match(/(?:₹|Rs\.?)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?!\s*%)/); return m ? parseFloat(m[1].replace(/,/g, "")) : null; };
 const sigCls = s => s === "Buy" || s === "Strong Buy" ? "buy" : s === "Avoid" || s === "Sell" || s === "Reduce" || s === "Strong Sell" ? "sell" : "hold";
 
-let META = {}, SCAN = null, ANALYSIS = {}, EVID = {}, BT = {}, MARKET = null;
+let META = {}, SCAN = null, ANALYSIS = {}, EVID = {}, BT = {}, MARKET = null, PORT = null;
 let STYLE = store.get("dsa_style", "swing"), FILTER = "all", SORT = {key: "swing", dir: -1}, SEL = null, ESEL = null;
 const CHARTS = {};
 
 // ---- tabs -------------------------------------------------------------------------------------------------------------
-const TABS = ["scan", "etf", "events", "market", "watch", "evidence"];
+const TABS = ["scan", "port", "etf", "events", "market", "watch", "evidence"];
+const HASH = {portfolio: "port", plan: "port", scanner: "scan", etfs: "etf", events: "events", market: "market", watchlist: "watch", evidence: "evidence"};
 function showTab(t) {
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x.dataset.t === t));
   TABS.forEach(k => $("#t-" + k).hidden = k !== t);
   store.set("dsa_tab", t);
-  Object.values(CHARTS).forEach(c => c.timeScale().fitContent());
+  const h = Object.keys(HASH).find(k => HASH[k] === t && k !== "plan");
+  try { history.replaceState(null, "", h && t !== "scan" ? "#" + h : location.pathname + location.search); } catch (e) {}
+  const fit = () => Object.values(CHARTS).forEach(c => { try { c.timeScale().fitContent(); } catch (e) {} });
+  fit(); setTimeout(fit, 60);                                     // charts drawn while hidden size themselves once visible
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.t));
 
@@ -701,6 +712,19 @@ function edgeHtml() {
       ${row("A: top 3 sectors", sr.A_top3)}${row("B: top 3, cash when Nifty < 200-day avg", sr.B_top3_cash_when_nifty_below_200dma)}</table></div>
       <div class="small mute">After 0.15% costs per side. Rotation won after 2019 but lost before it, so over 15 years it did not beat simply holding the Nifty 50. Rule B cut the worst fall but not the return gap.</div>`;
   }
+  const mo = E.momentum;
+  if (mo) {
+    const A = mo.rules.A, B = mo.rules.B, rw = mo.real_world_check || {};
+    const row = (label, s) => `<tr><td>${label}</td><td class="r">${n(s.cagr_pct)}%</td><td class="r">${n(s.universe_cagr_pct)}%</td><td class="r">${n(s.nifty500_cagr_pct)}%</td>
+      <td class="r">${f(s.excess_vs_universe_monthly_pct)}</td><td class="r">${n(s.t_vs_universe)}</td><td class="r nw">${n(s.max_dd_pct, 1)}% vs ${n(s.nifty500_max_dd_pct, 1)}%</td><td>${v(s.verdict)}</td></tr>`;
+    h += `<h4>E4 · Momentum: hold the 20 strongest Nifty 500 stocks, monthly (${esc(A.from)} → ${esc(A.to)})</h4>
+      <div class="scroll"><table><thead><tr><th style="min-width:190px">Rule</th><th class="r">Per year</th><th class="r">Average stock</th><th class="r">Nifty 500</th><th class="r">vs average, a month</th><th class="r">t</th><th class="r">Worst fall</th><th></th></tr></thead>
+      ${row("A: 12-month return, skipping the last month", A)}${row("B: NSE-style, risk-adjusted 6 + 12 months", B)}
+      ${rw.etf_cagr_pct != null ? `<tr><td>Real fund: Nifty 200 Momentum 30 ETF vs Nifty 200 (${esc(rw.from)} → ${esc(rw.to)})</td><td class="r">${n(rw.etf_cagr_pct)}%</td><td class="r">–</td><td class="r nw">${n(rw.nifty200_cagr_pct)}% (N200)</td>
+        <td class="r">${f(rw.excess_monthly_pct)}</td><td class="r">${n(rw.t)}</td><td class="r nw">${n(rw.etf_max_dd_pct, 1)}% vs ${n(rw.nifty200_max_dd_pct, 1)}%</td><td class="small mute">check only</td></tr>` : ""}</table></div>
+      <div class="small mute">After 0.25% costs per side. The test uses today's Nifty 500 members, so stocks that crashed out of the index are missing: even the average stock shows ${n(A.universe_cagr_pct, 0)}% a year against the index's ${n(A.nifty500_cagr_pct, 0)}%, and momentum gains most from that gap.
+      Rule A beat the average stock (t ${n(A.t_vs_universe)}) but fell ${n(-A.max_dd_pct, 0)}% at worst, against ${n(-A.nifty500_max_dd_pct, 0)}% for the index. The real momentum fund, which has no such bias, earned the same as the Nifty 200 with a much deeper fall. Not an edge we can rely on.</div>`;
+  }
   return h + `</div>`;
 }
 
@@ -817,6 +841,7 @@ function evidenceText() {
   if (E.short_term) out.push("Short-term score: tested, no score band beat the average stock over 5-10 days (no proven edge).");
   if (E.results) out.push(`Swing trades with results in their first 10 sessions: same average return and worst-5% loss as others, slightly more stop-outs (${E.results.all_signals.skipped_by_rule.stop_hit_pct}% vs ${E.results.all_signals.kept.stop_hit_pct}%).`);
   if (E.sector_rotation) out.push(`Sector rotation (top 3 sectors monthly, 2011-2026): ${E.sector_rotation.A_top3.strategy_cagr_pct}%/yr vs Nifty 50 ${E.sector_rotation.A_top3.nifty_cagr_pct}%/yr = did not beat the index.`);
+  if (E.momentum) { const a = E.momentum.rules.A, rw = E.momentum.real_world_check || {}; out.push(`Momentum (top 20 Nifty 500 stocks monthly, ${a.from} to ${a.to}): failed. It beat the average stock but with a ${a.max_dd_pct}% worst fall vs ${a.nifty500_max_dd_pct}% for the index, on survivorship-biased data; the real Nifty 200 Momentum 30 ETF earned ${rw.etf_cagr_pct}%/yr vs Nifty 200 ${rw.nifty200_cagr_pct}%/yr with a deeper fall.`); }
   return out;
 }
 function aiContext(kind, code) {
@@ -925,20 +950,93 @@ async function detectLocal() {
   } catch (e) {}
 }
 
+// ---- ₹1 lakh plan: five holdings and the paper record (src/portfolio.py) -------------------------------------------------
+const PCOL = ["#1E2756", "#D08A12", "#3F6FD8", "#0F8A7E", "#8A4FC8"];
+function renderPortfolio() {
+  const el = $("#port");
+  if (!PORT || !PORT.plan) { el.innerHTML = `<div class="panel empty">The ₹1 lakh plan appears after the next daily build.</div>`; return; }
+  const P = PORT.plan, R = PORT.record, RU = PORT.rules || {};
+  const rows = P.holdings.map((h, i) => ({...h, col: PCOL[i % PCOL.length]}));
+  const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", {day: "numeric", month: "short", year: "numeric"}) : "–";
+  const bar = rows.map(h => `<span style="width:${h.weight_pct}%;background:${h.col}" title="${esc(h.code)} ${n(h.weight_pct, 1)}%">${h.weight_pct >= 9 ? `${esc(h.code)} ${n(h.weight_pct, 0)}%` : ""}</span>`).join("")
+    + (P.unfilled_pct > 0 ? `<span style="width:${P.unfilled_pct}%;background:#B9BFD3;color:var(--ink)">Cash ${n(P.unfilled_pct, 0)}%</span>` : "");
+  const sub = h => {
+    if (h.kind !== "stock") return "";
+    const nr = h.next_results;
+    return nr ? `<div class="small">Next results <b>${esc(fmtDate(nr.date))}</b>${nr.confirmed ? "" : " (estimate)"}: expect a bigger move around that day.</div>` : "";
+  };
+  let html = `<div class="panel plan">
+    <h2>Today's plan for ₹1,00,000</h2>
+    <div class="small mute">Prices from the ${esc(fmtDate(P.date))} close. Five holdings: an index ETF, a gold ETF and three Nifty 500 stocks that pass every check below.</div>
+    <div class="alloc" role="img" aria-label="How the money is split">${bar}</div>
+    <div class="scroll"><table><thead><tr><th>Holding</th><th class="r">Share</th><th class="r">Money</th><th class="r hide-s">Shares to buy</th></tr></thead><tbody>
+    ${rows.map(h => `<tr><td><span class="sw" style="background:${h.col}"></span><span class="tk">${esc(h.code)}</span> <span class="chip">${esc(h.role)}</span>
+        <div>${esc(h.name)}${h.industry ? ` <span class="mute small">· ${esc(h.industry)}</span>` : ""}</div><div class="why">${esc(h.why)}</div>${sub(h)}
+        <div class="small show-s" style="margin-top:3px"><b>${h.qty}</b> × ${inr(h.price)} = ${inr(h.cost)}</div></td>
+      <td class="r"><span class="big">${n(h.weight_pct, 1)}%</span></td><td class="r nw">₹${n(h.amount, 0)}</td>
+      <td class="r nw hide-s"><b>${h.qty}</b> × ${inr(h.price)}<div class="small mute">= ${inr(h.cost)}</div></td></tr>`).join("")}
+    ${P.unfilled_pct > 0 ? `<tr><td><span class="sw" style="background:#B9BFD3"></span><b>Cash</b><div class="why">Fewer than ${RU.stock_slots} stocks passed every check today, so the empty stock slots stay in cash.</div></td><td class="r"><span class="big">${n(P.unfilled_pct, 1)}%</span></td><td class="r">–</td><td class="hide-s"></td></tr>` : ""}
+    </tbody></table></div>
+    <div class="row small" style="margin-top:8px;gap:18px"><span>Invested <b>${inr(P.invested)}</b></span><span>Left in cash <b>${inr(P.cash)}</b> (whole shares only)</span><span class="mute">${P.candidates} stocks passed the checks today</span></div>
+    <div class="note small" style="margin:12px 0 0"><b>Read this first.</b> This is a fixed rule, not a forecast. None of the rules we tested has proven it can beat the index
+      (Evidence tab), so the biggest share sits in the Nifty 50 ETF. Buy with delivery (CNC) orders; prices move overnight, so share counts change a little.
+      Charges are about 0.25% per side on stocks. It is research, not investment advice.</div>
+  </div>`;
+  if (R) {
+    const diff = R.bench_return_pct == null ? null : R.return_pct - R.bench_return_pct;
+    html += `<div class="panel"><h2>Paper record: ₹1 lakh following this plan since ${esc(fmtDate(R.start))}</h2>
+      <div class="small mute">Pretend money, updated every weekday after the close. It rebalances on the first trading day of each month, pays charges, and is compared with putting the same ₹1 lakh into the Nifty 50 ETF and holding it.</div>
+      <div class="tiles" style="margin-top:12px">
+        ${tile("Value now", inr(R.value), pct(R.return_pct, 2) + " since start")}
+        ${tile("Nifty 50 ETF, held", inr(R.bench_value), pct(R.bench_return_pct, 2) + " since start")}
+        ${tile("Plan vs ETF", diff == null ? "–" : `<span class="${cls(diff)}">${diff > 0 ? "+" : ""}${n(diff, 2)} pts</span>`, `${R.sessions} trading day${R.sessions === 1 ? "" : "s"} so far`)}
+        ${tile("Worst fall", R.max_dd_pct == null ? "–" : n(R.max_dd_pct, 1) + "%", `ETF: ${R.bench_max_dd_pct == null ? "–" : n(R.bench_max_dd_pct, 1) + "%"}`)}
+        ${tile("Charges paid", inr(R.fees), `cash ${inr(R.cash)}`)}
+      </div>
+      ${R.history.length > 1 ? `<div class="recchart" id="recchart"></div>` : `<div class="empty small">The record started on ${esc(fmtDate(R.start))}. The comparison line appears after the next trading day. Judge it after a year, not a week.</div>`}
+      <h4>Holdings now</h4><div class="scroll"><table><thead><tr><th>Holding</th><th class="r">Shares</th><th class="r hide-s">Bought at</th><th class="r">Price</th><th class="r">Value</th><th class="r">Share</th><th class="r">Gain</th></tr></thead><tbody>
+      ${R.holdings.map(h => `<tr><td><span class="tk">${esc(h.code)}</span><div class="small mute">since ${esc(fmtDate(h.since))}</div></td><td class="r">${h.qty}</td><td class="r hide-s">${inr(h.avg_price)}</td><td class="r">${inr(h.price)}</td>
+        <td class="r nw">${inr(h.value)}</td><td class="r">${n(h.weight_pct, 1)}%</td><td class="r">${pct(h.gain_pct)}</td></tr>`).join("")}</tbody></table></div>
+      <details style="margin-top:10px"><summary>Trades (${R.trades.length})</summary><div class="scroll"><table><thead><tr><th>Date</th><th>Trade</th><th class="r">Shares</th><th class="r">Price</th><th class="r">Charges</th><th class="hide-s">Why</th></tr></thead><tbody>
+        ${R.trades.slice().reverse().map(t => `<tr><td class="nw">${esc(fmtDate(t.date))}</td><td><span class="pill ${t.side === "Buy" ? "buy" : "sell"}">${t.side}</span> ${esc(t.code)}</td><td class="r">${t.qty}</td><td class="r">${inr(t.price)}</td><td class="r">${inr(t.fee)}</td><td class="small mute hide-s">${esc(t.why)}</td></tr>`).join("")}
+      </tbody></table></div></details></div>`;
+  }
+  html += `<div class="panel"><h2>The rules (fixed, written down before the first run)</h2><ul class="small" style="margin:0;padding-left:18px;max-width:90ch">
+    <li><b>${n(RU.core.weight * 100, 0)}% ${esc(RU.core.code)}</b>: the Nifty 50 in one ETF, the core.</li>
+    <li><b>${n(RU.cushion.weight * 100, 0)}% ${esc(RU.cushion.code)}</b>: gold, a cushion for bad months.</li>
+    <li><b>${RU.stock_slots} × ${n(RU.stock_weight_pct, 1)}% in Nifty 500 stocks</b> that pass every check: swing signal Buy (never Avoid), at least ₹${n(RU.min_traded_value_cr, 0)} crore traded a day,
+      no results in the next ${RU.results_block_sessions} sessions, a daily range under ${n(RU.max_atr_pct, 0)}% of the price, at most one stock per industry. The strongest 12-month gainers (leaving out the last month) win.</li>
+    <li><b>Monthly check:</b> a stock you hold stays while it is still among the ${RU.keep_rank} best that pass; otherwise it is sold and replaced. Everything is reset to these shares.</li>
+    <li><b>Between months:</b> the "Today's plan" table updates every day for new money; the paper record only trades once a month, because trading every day loses more in charges than it gains.</li>
+  </ul></div>`;
+  el.innerHTML = html;
+  if (R && R.history.length > 1 && window.LightweightCharts) {
+    const c = LightweightCharts.createChart($("#recchart"), {autoSize: true, localization: {priceFormatter: v => "₹" + n(v, 0)}, layout: {background: {type: "solid", color: "#fff"}, textColor: "#121620"},
+      grid: {vertLines: {color: "#eef1f6"}, horzLines: {color: "#eef1f6"}}, rightPriceScale: {borderColor: "#e3e7ef"}, timeScale: {borderColor: "#e3e7ef"}});
+    CHARTS.recchart = c;
+    const a = c.addLineSeries({color: "#1E2756", lineWidth: 2, title: "Plan"}), b = c.addLineSeries({color: "#D08A12", lineWidth: 2, title: "Nifty 50 ETF"});
+    a.setData(R.history.map(h => ({time: h.date, value: h.value})));
+    b.setData(R.history.filter(h => h.bench).map(h => ({time: h.date, value: h.bench})));
+    c.timeScale().fitContent();
+  }
+}
+
 // ---- start --------------------------------------------------------------------------------------------------------------
 (async () => {
   try { META = await J("data/meta.json"); } catch (e) {
     $("#t-scan").innerHTML = `<div class="panel empty">No data yet. Run <code>python main.py --build-site</code> (or wait for the daily GitHub run).</div>`; detectLocal(); return; }
-  const [scan, an, ev, bt, mk] = await Promise.allSettled([J("data/scan.json"), J("data/analysis.json"), J("data/evidence.json"), J("data/backtest.json"), J("data/market.json")]);
-  SCAN = scan.value || null; ANALYSIS = an.value || {}; EVID = ev.value || {}; BT = bt.value || {}; MARKET = mk.value || null;
+  const [scan, an, ev, bt, mk, pf] = await Promise.allSettled([J("data/scan.json"), J("data/analysis.json"), J("data/evidence.json"), J("data/backtest.json"), J("data/market.json"), J("data/portfolio.json")]);
+  SCAN = scan.value || null; ANALYSIS = an.value || {}; EVID = ev.value || {}; BT = bt.value || {}; MARKET = mk.value || null; PORT = pf.value || null;
   renderChips(); renderMast();
   $("#foot").innerHTML = `${(META.problems || []).length ? `<b>Data notes:</b> ${esc(META.problems.join(" · "))}<br>` : ""}
     Built ${esc(META.generated_ist || "")}. Prices: Yahoo Finance (end of day). Events: NSE, Yahoo. Built automatically after the NSE close. For information and research, not investment advice.`;
   fillUnivSelects();
   setStyle(STYLE === "short" ? "short" : "swing");
-  renderEtfs(); renderEvents(); renderMarket(MARKET); renderWatch(); renderEvidence();
+  renderEtfs(); renderEvents(); renderMarket(MARKET); renderWatch(); renderEvidence(); renderPortfolio();
 
-  showTab(TABS.includes(store.get("dsa_tab", "scan")) ? store.get("dsa_tab", "scan") : "scan");
+  const fromHash = HASH[location.hash.slice(1).toLowerCase()];
+  showTab(fromHash || (TABS.includes(store.get("dsa_tab", "scan")) ? store.get("dsa_tab", "scan") : "scan"));
+  window.addEventListener("hashchange", () => { const t = HASH[location.hash.slice(1).toLowerCase()]; if (t) showTab(t); });
   detectLocal();
 })();
 </script>

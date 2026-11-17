@@ -11,6 +11,7 @@ analysis rules are in `PLAN.md`.
 | Tab | What it shows |
 |---|---|
 | **Scanner** | Pick a list: Nifty 50, Next 50, 100, 200, 500, LargeMidcap 250, Midcap 50/100/150, Smallcap 100/250, 15 sectors (Bank, IT, Pharma, Auto, FMCG, Metal, Realty, Energy…) or 10 themes (PSE, Defence, Consumption, Digital…). All Nifty 500 stocks are scanned every day; sector lists show their Nifty 500 members. Each stock gets the swing plan (score, Buy/Watch/Avoid, setup, entry/stop/targets, size) and the short-term score; sortable; filters for Buy only and "results inside the hold"; click a stock for the chart, both plans and its events |
+| **₹1 lakh plan** (`#portfolio`) | Five holdings for ₹1,00,000 with the share of money, rupees and whole shares for each: 40% Nifty 50 ETF, 10% gold ETF, three Nifty 500 stocks that pass every check (rules: `src/portfolio.py`, research P1). Below it, a paper record that follows the plan from its first build (monthly rebalance, charges paid) against simply holding the Nifty 50 ETF |
 | **ETFs** | 24 liquid NSE ETFs in five groups (broad market, sector, factor, global, commodity): returns, trend, swing signal, ₹ traded a day, premium/discount to NAV; sector strength ranking (descriptive, not a tested rotation rule) |
 | **Events** | Coming results (confirmed by NSE, or Yahoo's estimate), dividends/splits, market holidays; how much each stock has moved on its last 8 results compared with a normal 2-day move |
 | **Market** | India market review (indices, breadth, FII/DII, sectors, news) |
@@ -119,6 +120,7 @@ Use swing Buy as a disciplined plan (setup, stop, size), not as a prediction.
 | E1 `tools/edge_short_term.py` | Does a high short-term score beat the average stock over 5–10 days? (94,599 signals, Nifty 500, 2022–2026) | **Failed.** No score band beats the average; among Nifty 50 stocks the weekly top 10 did slightly worse (−0.15%, t −2.3) |
 | E2 `tools/edge_results.py` | Do swing trades with results in their first 10 sessions do worse? (80,350 trades) | **Failed as a filter.** Same average (+1.15% vs +1.01%) and worst 5% (−8.5%); stop hit slightly more often (57% vs 56%) |
 | E3 `tools/edge_sector_rotation.py` | Does holding the 3 strongest of 12 sector indices (monthly) beat the Nifty 50? (2011–2026) | **Failed.** 10.6%/yr vs 11.4%; lost 2011–19, won 2019–26. With a 200-day cash filter: 10.9%/yr, worst fall −23% vs −29% |
+| E4 `tools/edge_momentum.py` | Does holding the 20 strongest Nifty 500 stocks (monthly) beat the average stock and the Nifty 500? (2022–2026) | **Failed.** 12-1 rule: 43.6%/yr vs 21.6% average stock (t 2.2) but worst fall −35% vs −19%, on survivorship-biased data. The real Nifty 200 Momentum 30 ETF: 11.6%/yr vs Nifty 200 11.5%, worst fall −31% vs −18% |
 
 None of the rules tested so far has a proven edge over simply holding the index after costs. The Avoid label is the part with evidence: it
 picks out stocks that tend to lag. The rules were not re-tuned after the check, to avoid fitting the past.
