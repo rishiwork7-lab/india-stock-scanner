@@ -48,6 +48,8 @@ def save(records_dir: Path, rows: List[Dict]) -> Optional[Path]:
     d = Path(records_dir) / "signals"
     d.mkdir(parents=True, exist_ok=True)
     f = d / f"{rows[0]['date']}.csv.gz"
+    if f.exists() and len(pd.read_csv(f, usecols=["code"])) > len(rows):
+        return f                                          # a rebuild with patchier data never replaces a fuller day
     buf = io.StringIO()
     pd.DataFrame(rows, columns=FIELDS).to_csv(buf, index=False)
     f.write_bytes(gzip.compress(buf.getvalue().encode(), mtime=0))       # mtime 0: same content -> same bytes, no empty commits

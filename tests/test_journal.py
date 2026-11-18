@@ -26,6 +26,8 @@ def test_diary_rows_save_load_and_recent_symbols(tmp_path):
     b1 = f.read_bytes()
     journal.save(tmp_path, rows)
     assert f.read_bytes() == b1                                                 # same day, same data -> identical file
+    journal.save(tmp_path, rows[:1])
+    assert f.read_bytes() == b1                                                 # fewer rows for the same day: kept the fuller file
     journal.save(tmp_path, journal.rows_from_scan(scan("2026-01-06")))
     d = journal.load(tmp_path)
     assert len(d) == 6 and list(d.columns) == journal.FIELDS and len(journal.load(tmp_path, since="2026-01-06")) == 3
