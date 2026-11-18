@@ -9,6 +9,7 @@
   site/data/evidence.json         historical checks (tools/swing_check.py, tools/swing_metrics.py)
   site/data/backtest.json         how past stored calls turned out (src/backtest.py)
   site/data/portfolio.json        today's ₹1 lakh plan, its paper record and the challengers' records (src/portfolio.py)
+  site/data/suggestions.json      day-by-day history of what each plan suggested and what changed (records/plans/suggestions/)
   site/data/scorecard.json        how each kind of signal in the diary did afterwards (src/journal.py, src/scorecard.py)
   records/                        signal diary and plan records; committed by the daily GitHub run (SAVE_RECORDS=1)
 Run: python main.py --build-site   (the GitHub workflow runs this every trading day after the close)
@@ -58,13 +59,13 @@ def _dump(path: Path, obj) -> None:
     path.write_text(json.dumps(obj, default=str, separators=(",", ":")), encoding="utf-8")
 
 
-def _previous_published() -> Optional[Dict]:
-    """portfolio.json as last published: the fallback when the saved records are missing."""
+def _previous_published(name: str = "portfolio.json") -> Optional[Dict]:
+    """A data file as last published (portfolio.json, suggestions.json): the fallback when the saved records are missing."""
     url = os.environ.get("SITE_URL", "").rstrip("/")
     if not url:
         return None
     import requests
-    r = requests.get(f"{url}/data/portfolio.json", timeout=20)
+    r = requests.get(f"{url}/data/{name}", timeout=20)
     return r.json() if r.status_code == 200 else None
 
 
@@ -74,7 +75,7 @@ def records_dir(base: Path) -> Path:
 
 
 def build_plans(scan: Dict, rec: Path, previous: Callable[[], Optional[Dict]], log: Callable[[str], None] = logger.info,
-                legacy_state: Optional[Path] = None) -> Dict:
+                legacy_state: Optional[Path] = None, previous_log: Optional[Callable[[], Optional[Dict]]] = None) -> Dict:
     """Advance the champion and every challenger (src/portfolio.py SPECS), apply the promotion rule once a month, and
     return what the page shows."""
     pdir = Path(rec) / "plans"
@@ -112,6 +113,21 @@ def build_plans(scan: Dict, rec: Path, previous: Callable[[], Optional[Dict]], l
             champ["champion"] = sw["to"]
         champ["last_check"] = month
     champ_file.write_text(json.dumps(champ, default=str))
+    # history of what each plan suggested (kept for good, like the diary)
+    sdir = pdir / "suggestions"
+    sdir.mkdir(exist_ok=True)
+    logs = {sp.id: json.loads((sdir / f"{sp.id}.json").read_text()) for sp in pf.SPECS if (sdir / f"{sp.id}.json").exists()}
+    if len(logs) < len(pf.SPECS) and previous_log is not None:
+        try:
+            old = previous_log() or {}
+            for k, v in old.items():
+                logs.setdefault(k, v)
+        except Exception as e:
+            log(f"plans: no published suggestion history ({e})")
+    for sp in pf.SPECS:
+        lg = logs.get(sp.id) or pf.seed_log(states[sp.id], sp)
+        logs[sp.id] = pf.log_suggestion(lg, scan, sp)
+        (sdir / f"{sp.id}.json").write_text(json.dumps(logs[sp.id], default=str))
     cid = champ["champion"]
     spec = pf.BY_ID[cid]
     plans = {}
@@ -120,7 +136,7 @@ def build_plans(scan: Dict, rec: Path, previous: Callable[[], Optional[Dict]], l
         plans[sp.id] = {"spec": {**pf.asdict(sp), "slot_weight_pct": round(sp.slot_weight * 100, 1)}, "record": pf.report(st, scan), "state": st,
                         "vs_champion": None if sp.id == cid else pf.compare(st, states[cid]),
                         "today": [{"code": h["code"], "weight_pct": round(h["weight"] * 100, 1)} for h in pf.targets(scan, spec=sp)]}
-    return {"champion": cid, "champion_info": champ, "plan": pf.plan(scan, spec=spec), "record": plans[cid]["record"], "plans": plans,
+    return {"champion": cid, "champion_info": champ, "plan": pf.plan(scan, spec=spec), "record": plans[cid]["record"], "plans": plans, "suggestions": logs,
             "promotion_rule": pf.PROMOTE,
             "rules": {"core": {"code": "NIFTYBEES", "weight": spec.core}, "cushion": {"code": "GOLDBEES", "weight": spec.gold}, "stock_slots": spec.slots,
                       "stock_weight_pct": round(spec.slot_weight * 100, 1), "picks": spec.picks,
@@ -201,7 +217,10 @@ def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
         problems.append("NSE event calendar unavailable: results dates are Yahoo estimates")
     _dump(data_dir / "scan.json", scan)
     try:
-        _dump(data_dir / "portfolio.json", build_plans(scan, rec, portfolio_prev or _previous_published, log, legacy_state=base / "portfolio" / "state.json"))
+        plans = build_plans(scan, rec, portfolio_prev or _previous_published, log, legacy_state=base / "portfolio" / "state.json",
+                            previous_log=None if portfolio_prev else (lambda: _previous_published("suggestions.json")))
+        _dump(data_dir / "suggestions.json", plans.pop("suggestions"))
+        _dump(data_dir / "portfolio.json", plans)
     except Exception as e:                                                       # never stop the site for the paper record
         logger.exception("portfolio")
         problems.append(f"model portfolio failed: {e}")

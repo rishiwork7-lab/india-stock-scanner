@@ -122,3 +122,53 @@ def test_build_plans_restores_old_and_new_formats(tmp_path):
     assert all(v["record"]["start"] == "2026-11-13" for v in new["plans"].values()) and new["plans"]["C2"]["record"]["sessions"] == 2
     again = build_plans(s2, tmp_path / "c", lambda: 1 / 0)                                            # saved files win, no fetch
     assert again["plans"]["P1"]["record"]["sessions"] == 2
+
+
+# ---- suggestion history ------------------------------------------------------------------------------------------------
+def test_suggestion_history_records_new_removed_more_and_less_with_reasons():
+    lg = pf.log_suggestion([], scan())
+    assert [c["action"] for c in lg[0]["changes"]] == ["New"] * 5 and lg[0]["date"] == "2026-11-13"
+    s = scan(date="2026-11-16", NIFTYBEES=200.0)                      # cheaper core -> more shares for the same ₹40,000
+    next(x for x in s["stocks"] if x["code"] == "CCC")["swing"]["signal"] = "Watch"
+    lg = pf.log_suggestion(lg, s)
+    ch = {c["code"]: c for c in lg[-1]["changes"]}
+    assert ch["III"]["action"] == "New" and ch["CCC"]["action"] == "Removed" and ch["CCC"]["why"] == "Swing signal changed to Watch"
+    assert ch["NIFTYBEES"]["action"] == "More" and (ch["NIFTYBEES"]["from_qty"], ch["NIFTYBEES"]["to_qty"]) == (160, 200)
+    assert "GOLDBEES" not in ch and len(lg) == 2                     # unchanged holdings are not listed
+    s3 = scan(date="2026-11-17", NIFTYBEES=200.5)
+    next(x for x in s3["stocks"] if x["code"] == "CCC")["swing"]["signal"] = "Watch"
+    lg = pf.log_suggestion(lg, s3)
+    assert lg[-1]["changes"] == []                                    # 1 share less is under ₹1,000: not a change
+
+
+def test_same_day_rebuild_replaces_only_with_fuller_data():
+    lg = pf.log_suggestion([], scan())
+    patchy = scan()
+    for x in patchy["stocks"][:3]:
+        x["stale"] = True
+    assert pf.log_suggestion(lg, patchy) == lg                         # fewer fresh stocks: kept
+    full = scan(GOLDBEES=50.0)
+    lg2 = pf.log_suggestion(lg, full)
+    assert len(lg2) == 1 and next(h for h in lg2[0]["holdings"] if h["code"] == "GOLDBEES")["qty"] == 200
+
+
+def test_why_dropped_reasons():
+    s = scan()
+    s["stocks"][0]["events"] = {"next_results": {"sessions": 2}}
+    assert pf.why_dropped(s, "AAA") == "Results due in 2 sessions"
+    assert pf.why_dropped(s, "BBB") == "Still passes the checks, but now ranks 1"            # AAA is blocked, so BBB leads the banks
+    assert pf.why_dropped(scan(), "BBB") == "AAA ranks higher in the same industry (Bank)"
+    assert pf.why_dropped(s, "GGG").startswith("Too jumpy") and pf.why_dropped(s, "ZZZ").startswith("No price today")
+
+
+def test_seed_log_rebuilds_the_first_day_from_the_opening_purchases(tmp_path):
+    st = pf.step(None, scan())
+    seed = pf.seed_log(st)
+    assert seed[0]["date"] == "2026-11-13" and seed[0]["seeded"] and [h["code"] for h in seed[0]["holdings"]][:2] == ["NIFTYBEES", "GOLDBEES"]
+    assert {h["code"]: h["weight_pct"] for h in seed[0]["holdings"]}["AAA"] == 16.7
+    patchy = scan()
+    patchy["stocks"][0]["stale"] = True
+    assert pf.log_suggestion(seed, patchy) == seed                     # the seeded day is never overwritten
+    from src.site_builder import build_plans
+    out = build_plans(scan(date="2026-11-16"), tmp_path, lambda: {"state": st})
+    assert [e["date"] for e in out["suggestions"]["P1"]] == ["2026-11-13", "2026-11-16"] and out["suggestions"]["C1"][0]["date"] == "2026-11-16"

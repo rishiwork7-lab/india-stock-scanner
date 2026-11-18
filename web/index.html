@@ -120,7 +120,10 @@ details summary{cursor:pointer;color:var(--indigo-2);font-weight:600}
 .alloc span{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;min-width:0}
 .plan td{vertical-align:top}.plan .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:7px;vertical-align:-1px}
 .plan .why{color:var(--mute);font-size:13.5px;max-width:60ch;margin-top:2px}.plan .big{font-size:20px;font-weight:700;font-stretch:80%;color:var(--indigo)}
-.recchart{height:260px;margin:6px 0 4px}.show-s{display:none}
+.recchart{height:260px;margin:6px 0 4px}
+.sday{border-top:1px solid var(--line-2);padding:10px 0}.sday:first-of-type{border-top:0}.sday h4{margin:0 0 6px;font-size:15px;color:var(--indigo)}
+.chg{display:flex;gap:8px;align-items:baseline;margin:3px 0;font-size:14.5px}.chg .act{flex:none;min-width:74px}.chg .why{color:var(--mute);font-size:13.5px}
+.pill.new{background:var(--upbg);color:var(--up)}.pill.rem{background:var(--downbg);color:var(--down)}.pill.more,.pill.less{background:var(--watchbg);color:var(--watch)}.show-s{display:none}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 13px}.tile>span{display:block;color:var(--mute);font-size:13px}
 .tile b{display:block;font-size:24px;font-weight:700;font-stretch:78%;line-height:1.15}.tile i{font-style:normal;color:var(--mute);font-size:13px}
@@ -233,7 +236,7 @@ async function J(path) { const r = await fetch(path, {cache: "no-cache"}); if (!
 const price = s => { if (s == null) return null; if (typeof s === "number") return s; const m = String(s).replace(/MA\d+/g, " ").match(/(?:₹|Rs\.?)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?!\s*%)/); return m ? parseFloat(m[1].replace(/,/g, "")) : null; };
 const sigCls = s => s === "Buy" || s === "Strong Buy" ? "buy" : s === "Avoid" || s === "Sell" || s === "Reduce" || s === "Strong Sell" ? "sell" : "hold";
 
-let META = {}, SCAN = null, ANALYSIS = {}, EVID = {}, BT = {}, MARKET = null, PORT = null, SCORE = null, SCH = store.get("dsa_sch", "20");
+let META = {}, SCAN = null, ANALYSIS = {}, EVID = {}, BT = {}, MARKET = null, PORT = null, SUGG = null, SGP = null, SCORE = null, SCH = store.get("dsa_sch", "20");
 let STYLE = store.get("dsa_style", "swing"), FILTER = "all", SORT = {key: "swing", dir: -1}, SEL = null, ESEL = null;
 const CHARTS = {};
 
@@ -974,6 +977,45 @@ function scoreHtml() {
 }
 document.addEventListener("click", e => { const b = e.target.closest("#schz button"); if (!b) return; SCH = b.dataset.h; store.set("dsa_sch", SCH); renderEvidence(); });
 
+// ---- history of what each plan suggested (records/plans/suggestions/) --------------------------------------------------
+function renderSugg() {
+  const el = $("#sugg");
+  if (!el) return;
+  if (!SUGG || !Object.keys(SUGG).length) { el.innerHTML = `<h2>History of suggestions</h2><div class="empty small">The history starts with the next daily build.</div>`; return; }
+  const ids = Object.keys(SUGG);
+  if (!SGP || !SUGG[SGP]) SGP = PORT && SUGG[PORT.champion] ? PORT.champion : ids[0];
+  const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-IN", {weekday: "short", day: "numeric", month: "short", year: "numeric"});
+  const name = id => PORT && PORT.plans && PORT.plans[id] ? `${id} · ${PORT.plans[id].spec.name}` : id;
+  const lg = SUGG[SGP].slice().reverse();
+  const line = c => {
+    const cls = {New: "new", Removed: "rem", More: "more", Less: "less"}[c.action];
+    const label = {New: "Buy new", Removed: "Remove", More: "Buy more", Less: "Buy fewer"}[c.action];
+    const what = c.action === "New" ? `<b>${esc(c.code)}</b>: ${c.to_qty} shares, ${n(c.to_weight, 1)}% of the money`
+      : c.action === "Removed" ? `<b>${esc(c.code)}</b> (was ${c.from_qty} shares, ${n(c.from_weight, 1)}%)`
+      : `<b>${esc(c.code)}</b>: ${c.from_qty} → ${c.to_qty} shares${c.from_weight !== c.to_weight ? `, ${n(c.from_weight, 1)}% → ${n(c.to_weight, 1)}%` : ""}`;
+    return `<div class="chg"><span class="act"><span class="pill ${cls}">${label}</span></span><span>${what}<div class="why">${esc(c.why || "")}</div></span></div>`;
+  };
+  let out = "", quiet = [];
+  const flush = () => { if (quiet.length) { out += `<div class="sday small mute">${quiet.length === 1 ? esc(fmtDate(quiet[0])) : `${esc(fmtDate(quiet[quiet.length - 1]))} – ${esc(fmtDate(quiet[0]))}`}: no change</div>`; quiet = []; } };
+  for (const e of lg) {
+    if (!e.changes.length) { quiet.push(e.date); continue; }
+    flush();
+    out += `<div class="sday"><h4>${esc(fmtDate(e.date))}${e.seeded ? ` <span class="small mute" style="font-weight:400">(first day, rebuilt from the opening purchases)</span>` : ""}</h4>
+      ${e.changes.map(line).join("")}
+      <details style="margin-top:4px"><summary class="small">Full plan that day</summary><div class="scroll"><table><thead><tr><th>Holding</th><th class="r">Share</th><th class="r">Shares</th><th class="r">Price</th><th class="r">Money</th></tr></thead><tbody>
+        ${e.holdings.map(h => `<tr><td><span class="tk">${esc(h.code)}</span></td><td class="r">${n(h.weight_pct, 1)}%</td><td class="r">${h.qty}</td><td class="r">${inr(h.price)}</td><td class="r">${inr(h.amount)}</td></tr>`).join("")}
+        <tr><td class="mute">Cash left</td><td></td><td></td><td></td><td class="r">${inr(e.cash)}</td></tr></tbody></table></div></details></div>`;
+  }
+  flush();
+  el.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="margin:0">History of suggestions</h2>
+      <label class="small">Plan <select id="sgsel">${ids.map(id => `<option value="${esc(id)}"${id === SGP ? " selected" : ""}>${esc(name(id))}</option>`).join("")}</select></label></div>
+    <div class="small mute" style="margin:4px 0 8px;max-width:95ch">Every day's "Today's plan" is saved and kept. Each day lists only what changed from the day before: a new holding,
+      one that was dropped (and why), or a different number of shares. Share counts that move by less than ₹1,000 are not listed.
+      The paper record above trades only on the first trading day of each month; its own trades are under "Trades".</div>
+    ${out}`;
+  $("#sgsel").onchange = e => { SGP = e.target.value; renderSugg(); };
+}
+
 // ---- plans racing each other: champion + challengers, promotion rule (src/portfolio.py, research L1) ---------------------
 const RACECOL = {P1: "#1E2756", C1: "#3F6FD8", C2: "#0F8A7E", C3: "#8A4FC8", C4: "#C2410C"};
 function raceHtml() {
@@ -1069,6 +1111,7 @@ function renderPortfolio() {
         ${R.trades.slice().reverse().map(t => `<tr><td class="nw">${esc(fmtDate(t.date))}</td><td><span class="pill ${t.side === "Buy" ? "buy" : "sell"}">${t.side}</span> ${esc(t.code)}</td><td class="r">${t.qty}</td><td class="r">${inr(t.price)}</td><td class="r">${inr(t.fee)}</td><td class="small mute hide-s">${esc(t.why)}</td></tr>`).join("")}
       </tbody></table></div></details></div>`;
   }
+  html += `<div class="panel plan" id="sugg"></div>`;
   html += raceHtml();
   html += `<div class="panel"><h2>The rules (fixed, written down before the first run)</h2><ul class="small" style="margin:0;padding-left:18px;max-width:90ch">
     <li><b>${n(RU.core.weight * 100, 0)}% ${esc(RU.core.code)}</b>: the Nifty 50 in one ETF, the core.</li>
@@ -1080,7 +1123,7 @@ function renderPortfolio() {
     <li><b>Between months:</b> the "Today's plan" table updates every day for new money; the paper record only trades once a month, because trading every day loses more in charges than it gains.</li>
   </ul></div>`;
   el.innerHTML = html;
-  drawRace();
+  drawRace(); renderSugg();
   if (R && R.history.length > 1 && window.LightweightCharts) {
     const c = LightweightCharts.createChart($("#recchart"), {autoSize: true, localization: {priceFormatter: v => "₹" + n(v, 0)}, layout: {background: {type: "solid", color: "#fff"}, textColor: "#121620"},
       grid: {vertLines: {color: "#eef1f6"}, horzLines: {color: "#eef1f6"}}, rightPriceScale: {borderColor: "#e3e7ef"}, timeScale: {borderColor: "#e3e7ef"}});
@@ -1096,8 +1139,8 @@ function renderPortfolio() {
 (async () => {
   try { META = await J("data/meta.json"); } catch (e) {
     $("#t-scan").innerHTML = `<div class="panel empty">No data yet. Run <code>python main.py --build-site</code> (or wait for the daily GitHub run).</div>`; detectLocal(); return; }
-  const [scan, an, ev, bt, mk, pf, sc] = await Promise.allSettled([J("data/scan.json"), J("data/analysis.json"), J("data/evidence.json"), J("data/backtest.json"), J("data/market.json"), J("data/portfolio.json"), J("data/scorecard.json")]);
-  SCAN = scan.value || null; ANALYSIS = an.value || {}; EVID = ev.value || {}; BT = bt.value || {}; MARKET = mk.value || null; PORT = pf.value || null; SCORE = sc.value || null;
+  const [scan, an, ev, bt, mk, pf, sc, sg] = await Promise.allSettled([J("data/scan.json"), J("data/analysis.json"), J("data/evidence.json"), J("data/backtest.json"), J("data/market.json"), J("data/portfolio.json"), J("data/scorecard.json"), J("data/suggestions.json")]);
+  SCAN = scan.value || null; ANALYSIS = an.value || {}; EVID = ev.value || {}; BT = bt.value || {}; MARKET = mk.value || null; PORT = pf.value || null; SCORE = sc.value || null; SUGG = sg.value || null;
   renderChips(); renderMast();
   $("#foot").innerHTML = `${(META.problems || []).length ? `<b>Data notes:</b> ${esc(META.problems.join(" · "))}<br>` : ""}
     Built ${esc(META.generated_ist || "")}. Prices: Yahoo Finance (end of day). Events: NSE, Yahoo. Built automatically after the NSE close. For information and research, not investment advice.`;

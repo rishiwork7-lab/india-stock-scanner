@@ -313,3 +313,104 @@ def promotion_check(states: Dict[str, Dict], champion: str, date: str) -> Option
             best = {**{f"shared_{k}" if k in ("from", "to") else k: v for k, v in c.items()},
                     "date": date, "from": champion, "to": pid, "gain_pts": round(gain, 2)}
     return best
+
+
+# ---- history of what each plan suggested ---------------------------------------------------------------------------------
+def _fresh(scan: Dict) -> int:
+    return sum(1 for r in scan.get("stocks", []) if r.get("price") and not r.get("stale"))
+
+
+def why_dropped(scan: Dict, code: str, spec: Spec = P1) -> str:
+    """Plain reason a holding is no longer suggested."""
+    rows = {r["code"]: r for r in scan.get("stocks", []) + scan.get("etfs", [])}
+    r = rows.get(code)
+    if r is None or not r.get("price"):
+        return "No price today (may have left the Nifty 500)"
+    if spec.picks == "sector_etf":
+        sec = {s["code"]: s for s in scan.get("sectors", [])}.get(code)
+        if sec and not sec.get("above_ma200"):
+            return "Sector fell below its 200-day average"
+        return f"Stronger sectors now rank above it (rank {sec['rank']})" if sec else "No longer in the sector ranking"
+    sw = r.get("swing") or {}
+    sess = _results_in(r)
+    if r.get("stale"):
+        return "Price data out of date today"
+    if sw.get("signal") != "Buy":
+        return f"Swing signal changed to {sw.get('signal') or 'none'}"
+    if (r.get("traded_value_cr") or 0) < MIN_TV_CR:
+        return f"Trading dropped below ₹{MIN_TV_CR:.0f} crore a day"
+    if (sw.get("atr_pct") or 99) > MAX_ATR_PCT:
+        return f"Too jumpy: moves {sw.get('atr_pct')}% a day (limit {MAX_ATR_PCT:.0f}%)"
+    if sess is not None and sess <= RESULTS_BLOCK:
+        return f"Results due in {sess} session{'s' if sess != 1 else ''}"
+    cands = candidates(scan, spec.picks)
+    same = [c for c in cands if c.get("industry") == r.get("industry")]
+    if same and same[0]["code"] != code:
+        return f"{same[0]['code']} ranks higher in the same industry ({r.get('industry')})"
+    pos = next((i for i, c in enumerate(cands) if c["code"] == code), None)
+    return f"Still passes the checks, but now ranks {pos + 1}" if pos is not None else "No longer passes the checks"
+
+
+def suggestion(scan: Dict, spec: Spec = P1, capital: float = CAPITAL) -> Dict:
+    p = plan(scan, capital, spec)
+    return {"date": scan["date"], "fresh_stocks": _fresh(scan), "cash": p["cash"],
+            "holdings": [{"code": h["code"], "name": h["name"], "kind": h["kind"], "weight_pct": h["weight_pct"], "qty": h["qty"],
+                          "price": h["price"], "amount": h["cost"], "why": h["why"]} for h in p["holdings"]]}
+
+
+def changes(prev: Optional[Dict], cur: Dict, scan: Dict, spec: Spec = P1) -> List[Dict]:
+    """What changed since the previous suggestion: New / Removed / More / Less (quantity moves under ₹1,000 are ignored)."""
+    if not prev:
+        return [{"code": h["code"], "action": "New", "to_qty": h["qty"], "to_weight": h["weight_pct"], "why": h["why"]} for h in cur["holdings"]]
+    a, b = {h["code"]: h for h in prev["holdings"]}, {h["code"]: h for h in cur["holdings"]}
+    out = []
+    for code, h in b.items():
+        if code not in a:
+            out.append({"code": code, "action": "New", "to_qty": h["qty"], "to_weight": h["weight_pct"], "why": h["why"]})
+        else:
+            o = a[code]
+            dq = h["qty"] - o["qty"]
+            if dq and (abs(dq) * h["price"] >= MIN_TRADE or h["weight_pct"] != o["weight_pct"]):
+                out.append({"code": code, "action": "More" if dq > 0 else "Less", "from_qty": o["qty"], "to_qty": h["qty"],
+                            "from_weight": o["weight_pct"], "to_weight": h["weight_pct"],
+                            "why": "Its share of the plan changed" if h["weight_pct"] != o["weight_pct"] else "The price moved, so the same rupee amount buys a different number of shares"})
+    for code, o in a.items():
+        if code not in b:
+            out.append({"code": code, "action": "Removed", "from_qty": o["qty"], "from_weight": o["weight_pct"], "why": why_dropped(scan, code, spec)})
+    order = {"New": 0, "Removed": 1, "More": 2, "Less": 3}
+    return sorted(out, key=lambda x: order[x["action"]])
+
+
+def log_suggestion(log: List[Dict], scan: Dict, spec: Spec = P1) -> List[Dict]:
+    """Append today's suggestion with its changes. A rebuild for the same data date replaces that entry only when its data
+    is at least as complete (Yahoo sometimes returns the latest day for part of the list)."""
+    log = list(log or [])
+    cur = suggestion(scan, spec)
+    if log and cur["date"] < log[-1]["date"]:
+        return log
+    if log and log[-1]["date"] == cur["date"]:
+        if cur["fresh_stocks"] < log[-1].get("fresh_stocks", 0):
+            return log
+        prev = log[-2] if len(log) > 1 else None
+        log = log[:-1]
+    else:
+        prev = log[-1] if log else None
+    cur["changes"] = changes(prev, cur, scan, spec)
+    log.append(cur)
+    return log
+
+
+def seed_log(state: Dict, spec: Spec = P1) -> List[Dict]:
+    """Rebuild the first day's suggestion from a record's opening purchases (for records started before the log existed)."""
+    first = [t for t in state.get("trades", []) if t["date"] == state["start"] and t["side"] == "Buy"]
+    if not first:
+        return []
+    w = {"NIFTYBEES": spec.core, "GOLDBEES": spec.gold}
+    hold = [{"code": t["code"], "name": state["holdings"].get(t["code"], {}).get("name", t["code"]), "kind": "etf" if t["code"] in w else "stock",
+             "weight_pct": round(w.get(t["code"], spec.slot_weight) * 100, 1), "qty": t["qty"], "price": t["price"], "amount": t["value"],
+             "why": t["why"].replace("New pick: ", "")} for t in first]
+    order = {"NIFTYBEES": 0, "GOLDBEES": 1}
+    hold.sort(key=lambda h: order.get(h["code"], 2))
+    entry = {"date": state["start"], "fresh_stocks": 10 ** 6, "seeded": True, "cash": round(CAPITAL - sum(h["amount"] for h in hold), 2), "holdings": hold}
+    entry["changes"] = [{"code": h["code"], "action": "New", "to_qty": h["qty"], "to_weight": h["weight_pct"], "why": h["why"]} for h in hold]
+    return [entry]
