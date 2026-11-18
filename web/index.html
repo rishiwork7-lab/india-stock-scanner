@@ -233,7 +233,7 @@ async function J(path) { const r = await fetch(path, {cache: "no-cache"}); if (!
 const price = s => { if (s == null) return null; if (typeof s === "number") return s; const m = String(s).replace(/MA\d+/g, " ").match(/(?:₹|Rs\.?)?\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?!\s*%)/); return m ? parseFloat(m[1].replace(/,/g, "")) : null; };
 const sigCls = s => s === "Buy" || s === "Strong Buy" ? "buy" : s === "Avoid" || s === "Sell" || s === "Reduce" || s === "Strong Sell" ? "sell" : "hold";
 
-let META = {}, SCAN = null, ANALYSIS = {}, EVID = {}, BT = {}, MARKET = null, PORT = null;
+let META = {}, SCAN = null, ANALYSIS = {}, EVID = {}, BT = {}, MARKET = null, PORT = null, SCORE = null, SCH = store.get("dsa_sch", "20");
 let STYLE = store.get("dsa_style", "swing"), FILTER = "all", SORT = {key: "swing", dir: -1}, SEL = null, ESEL = null;
 const CHARTS = {};
 
@@ -671,7 +671,7 @@ function renderEvidence() {
     return `<div class="panel"><h2>${label}</h2><div class="small mute">Calls saved by this app, judged ${b.days} sessions later: ${s.completed_count ?? 0} judged, ${s.insufficient_count ?? 0} too recent.
       Direction right ${s.direction_accuracy_pct == null ? "–" : n(s.direction_accuracy_pct) + "%"}.</div>
       ${rows ? `<table><thead><tr><th>Advice</th><th class="r">Total</th><th class="r">Right</th><th class="r">Wrong</th><th class="r">Win rate</th></tr></thead>${rows}</table>` : ""}</div>`; };
-  html = edgeHtml() + html;
+  html = scoreHtml() + edgeHtml() + html;
   html += `<div class="grid2">${btTable("swing", "Live record: swing calls")}${btTable("short", "Live record: short-term calls")}</div>`;
   $("#evidence").innerHTML = html;
 }
@@ -950,6 +950,73 @@ async function detectLocal() {
   } catch (e) {}
 }
 
+// ---- live scorecard from the signal diary (src/scorecard.py, research L1) ----------------------------------------------
+function scoreHtml() {
+  const S = SCORE;
+  if (!S) return "";
+  const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", {day: "numeric", month: "short", year: "numeric"}) : "–";
+  const head = `<h2>Live scorecard: how the signals actually did afterwards</h2>
+    <div class="small mute" style="max-width:95ch">Every day the site saves every stock's signals in a diary that is never edited, then checks what happened next:
+      buy at the next open, sell ${["5", "20", "60"].map(h => `<b>${h}</b>`).join(" / ")} sessions later, minus charges, compared with the average stock that day.
+      Stocks that later leave the Nifty 500 stay in, so unlike the older tests this has no survivorship bias. It says nothing until it has enough days of results (20, 40 and 120 for the three holds), and its t-values allow for the overlap between neighbouring days.</div>`;
+  if (!S.days_recorded) return `<div class="panel">${head}<div class="empty small">The diary starts with the next daily build.</div></div>`;
+  const H = S.horizons[SCH] ? SCH : "20", rows = S.horizons[H] || {}, matured = (S.matured || {})[H] || 0;
+  const pill = st => `<span class="pill ${st === "holding up" ? "buy" : st === "worse than average" ? "sell" : "hold"}">${esc(st)}</span>`;
+  const f = x => x == null ? "–" : (x > 0 ? "+" : "") + n(x, 2) + "%";
+  const body = Object.entries(rows).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="r">${n(v.signals, 0)}</td><td class="r">${v.dates}</td>
+    <td class="r">${f(v.avg_return_pct)}</td><td class="r">${f(v.vs_average_pct)}</td><td class="r">${n(v.t)}</td><td class="r hide-s">${v.win_rate_pct == null ? "–" : n(v.win_rate_pct, 0) + "%"}</td><td>${pill(v.status)}</td></tr>`).join("");
+  return `<div class="panel">${head}
+    <div class="row" style="margin:10px 0 6px"><div class="seg" id="schz">${["5", "20", "60"].map(h => `<button data-h="${h}" class="${h === H ? "on" : ""}">${h} sessions</button>`).join("")}</div>
+      <span class="small mute">Diary since ${esc(fmtDate(S.start))}: ${S.days_recorded} day${S.days_recorded === 1 ? "" : "s"}, ${n(S.rows, 0)} rows. ${matured} day${matured === 1 ? "" : "s"} with ${H}-session results so far.</span></div>
+    ${matured ? `<div class="scroll"><table><thead><tr><th>Group</th><th class="r">Signals</th><th class="r">Days</th><th class="r">Avg return</th><th class="r">vs average stock</th><th class="r">t</th><th class="r hide-s">Wins</th><th>So far</th></tr></thead><tbody>${body}</tbody></table></div>`
+      : `<div class="empty small">No ${H}-session results yet: the first ones arrive about ${H} trading days after ${esc(fmtDate(S.start))}.</div>`}
+  </div>`;
+}
+document.addEventListener("click", e => { const b = e.target.closest("#schz button"); if (!b) return; SCH = b.dataset.h; store.set("dsa_sch", SCH); renderEvidence(); });
+
+// ---- plans racing each other: champion + challengers, promotion rule (src/portfolio.py, research L1) ---------------------
+const RACECOL = {P1: "#1E2756", C1: "#3F6FD8", C2: "#0F8A7E", C3: "#8A4FC8", C4: "#C2410C"};
+function raceHtml() {
+  if (!PORT.plans) return "";
+  const PR = PORT.promotion_rule || {}, ch = PORT.champion, info = PORT.champion_info || {};
+  const fmtDate = d => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", {day: "numeric", month: "short", year: "numeric"}) : "–";
+  const ids = Object.keys(PORT.plans).sort((a, b) => PORT.plans[b].record.value - PORT.plans[a].record.value);
+  const start = Object.values(PORT.plans).map(p => p.record.start).sort().pop();
+  const earliest = (() => { const d = new Date(start + "T00:00:00"); d.setMonth(d.getMonth() + (PR.min_months || 12)); return d.toISOString().slice(0, 10); })();
+  const row = id => {
+    const p = PORT.plans[id], r = p.record, isC = id === ch;
+    const vs = isC ? `<span class="pill buy">Shown</span>` : (p.vs_champion && p.vs_champion.days ? pct(r.return_pct - PORT.plans[ch].record.return_pct, 2).replace("%", " pts") : "–");
+    return `<tr><td class="nw"><span class="sw" style="background:${RACECOL[id] || "#888"}"></span><b>${esc(id)}</b> ${esc(p.spec.name)}<div class="small mute show-s" style="white-space:normal;max-width:150px">${esc(p.spec.change)}</div></td>
+      <td class="small hide-s">${esc(p.spec.change)}<div class="mute">${p.today.map(t => `${esc(t.code)} ${n(t.weight_pct, 0)}%`).join(", ")}</div></td>
+      <td class="r nw">${inr(r.value)}</td><td class="r">${pct(r.return_pct, 2)}</td><td class="r nw">${vs}</td>
+      <td class="r hide-s">${r.max_dd_pct == null ? "–" : n(r.max_dd_pct, 1) + "%"}</td><td class="r hide-s">${inr(r.fees)}</td></tr>`;
+  };
+  const sw = (info.switches || []).slice().reverse();
+  return `<div class="panel plan"><h2>Plans racing each other</h2>
+    <div class="small mute" style="max-width:95ch">This is how the plan improves itself. Each challenger changes one thing in the first plan and runs its own pretend ₹1 lakh from the same day.
+      A challenger takes over the plan shown above only when, after at least ${PR.min_months || 12} months, it makes at least ${n(PR.min_gain_pts || 2, 0)} points a year more after charges,
+      its worst fall is no more than ${n(PR.max_extra_dd_pts || 3, 0)} points deeper, and it was ahead in both halves of the race. Nothing is re-tuned by hand. Earliest possible switch: <b>${esc(fmtDate(earliest))}</b>.</div>
+    <div class="scroll" style="margin-top:10px"><table><thead><tr><th>Plan</th><th class="hide-s">What is different · holdings today</th><th class="r">Value</th><th class="r">Since start</th><th class="r">vs shown plan</th><th class="r hide-s">Worst fall</th><th class="r hide-s">Charges</th></tr></thead>
+    <tbody>${ids.map(row).join("")}</tbody></table></div>
+    ${PORT.plans[ch].record.history.length > 1 ? `<div class="recchart" id="racechart"></div>` : `<div class="empty small">The race started on ${esc(fmtDate(start))}; the chart appears after the next trading day.</div>`}
+    <div class="small" style="margin-top:6px">${sw.length ? `<b>Switches:</b> ${sw.map(x => `${esc(fmtDate(x.date))}: ${esc(x.to)} replaced ${esc(x.from)} (${x.gain_pts > 0 ? "+" : ""}${n(x.gain_pts, 1)} points a year, worst fall ${n(x.challenger_dd_pct, 1)}% vs ${n(x.champion_dd_pct, 1)}%)`).join("; ")}` : `<span class="mute">No switches yet. The plan shown has been ${esc(ch)} since the start.</span>`}</div>
+  </div>`;
+}
+function drawRace() {
+  const el = $("#racechart");
+  if (!el || !window.LightweightCharts) return;
+  const c = LightweightCharts.createChart(el, {autoSize: true, localization: {priceFormatter: v => "₹" + n(v, 0)}, layout: {background: {type: "solid", color: "#fff"}, textColor: "#121620"},
+    grid: {vertLines: {color: "#eef1f6"}, horzLines: {color: "#eef1f6"}}, rightPriceScale: {borderColor: "#e3e7ef"}, timeScale: {borderColor: "#e3e7ef"}});
+  CHARTS.racechart = c;
+  for (const [id, p] of Object.entries(PORT.plans)) {
+    const l = c.addLineSeries({color: RACECOL[id] || "#888", lineWidth: id === PORT.champion ? 3 : 2, title: id, priceLineVisible: false});
+    l.setData(p.record.history.map(h => ({time: h.date, value: h.value})));
+  }
+  const b = c.addLineSeries({color: "#B9BFD3", lineWidth: 2, lineStyle: 2, title: "Nifty 50 ETF", priceLineVisible: false});
+  b.setData(PORT.plans[PORT.champion].record.history.filter(h => h.bench).map(h => ({time: h.date, value: h.bench})));
+  c.timeScale().fitContent();
+}
+
 // ---- ₹1 lakh plan: five holdings and the paper record (src/portfolio.py) -------------------------------------------------
 const PCOL = ["#1E2756", "#D08A12", "#3F6FD8", "#0F8A7E", "#8A4FC8"];
 function renderPortfolio() {
@@ -967,6 +1034,7 @@ function renderPortfolio() {
   };
   let html = `<div class="panel plan">
     <h2>Today's plan for ₹1,00,000</h2>
+    ${PORT.plans ? `<div class="small" style="margin:-4px 0 6px">Plan shown: <b>${esc(PORT.champion)} · ${esc(PORT.plans[PORT.champion].spec.name)}</b>, the current leader of the plans racing below.</div>` : ""}
     <div class="small mute">Prices from the ${esc(fmtDate(P.date))} close. Five holdings: an index ETF, a gold ETF and three Nifty 500 stocks that pass every check below.</div>
     <div class="alloc" role="img" aria-label="How the money is split">${bar}</div>
     <div class="scroll"><table><thead><tr><th>Holding</th><th class="r">Share</th><th class="r">Money</th><th class="r hide-s">Shares to buy</th></tr></thead><tbody>
@@ -1001,15 +1069,18 @@ function renderPortfolio() {
         ${R.trades.slice().reverse().map(t => `<tr><td class="nw">${esc(fmtDate(t.date))}</td><td><span class="pill ${t.side === "Buy" ? "buy" : "sell"}">${t.side}</span> ${esc(t.code)}</td><td class="r">${t.qty}</td><td class="r">${inr(t.price)}</td><td class="r">${inr(t.fee)}</td><td class="small mute hide-s">${esc(t.why)}</td></tr>`).join("")}
       </tbody></table></div></details></div>`;
   }
+  html += raceHtml();
   html += `<div class="panel"><h2>The rules (fixed, written down before the first run)</h2><ul class="small" style="margin:0;padding-left:18px;max-width:90ch">
     <li><b>${n(RU.core.weight * 100, 0)}% ${esc(RU.core.code)}</b>: the Nifty 50 in one ETF, the core.</li>
-    <li><b>${n(RU.cushion.weight * 100, 0)}% ${esc(RU.cushion.code)}</b>: gold, a cushion for bad months.</li>
-    <li><b>${RU.stock_slots} × ${n(RU.stock_weight_pct, 1)}% in Nifty 500 stocks</b> that pass every check: swing signal Buy (never Avoid), at least ₹${n(RU.min_traded_value_cr, 0)} crore traded a day,
-      no results in the next ${RU.results_block_sessions} sessions, a daily range under ${n(RU.max_atr_pct, 0)}% of the price, at most one stock per industry. The strongest 12-month gainers (leaving out the last month) win.</li>
+    ${RU.cushion.weight > 0 ? `<li><b>${n(RU.cushion.weight * 100, 0)}% ${esc(RU.cushion.code)}</b>: gold, a cushion for bad months.</li>` : ""}
+    ${RU.picks === "sector_etf" ? `<li><b>${RU.stock_slots} × ${n(RU.stock_weight_pct, 1)}% in sector ETFs</b>: the strongest in the ETFs tab's sector ranking (average of 3- and 6-month return) that are above their 200-day average.</li>`
+    : `<li><b>${RU.stock_slots} × ${n(RU.stock_weight_pct, 1)}% in Nifty 500 stocks</b> that pass every check: swing signal Buy (never Avoid), at least ₹${n(RU.min_traded_value_cr, 0)} crore traded a day,
+      no results in the next ${RU.results_block_sessions} sessions, a daily range under ${n(RU.max_atr_pct, 0)}% of the price, at most one stock per industry. ${RU.picks === "calm" ? "The calmest (smallest daily range) win." : "The strongest 12-month gainers (leaving out the last month) win."}</li>`}
     <li><b>Monthly check:</b> a stock you hold stays while it is still among the ${RU.keep_rank} best that pass; otherwise it is sold and replaced. Everything is reset to these shares.</li>
     <li><b>Between months:</b> the "Today's plan" table updates every day for new money; the paper record only trades once a month, because trading every day loses more in charges than it gains.</li>
   </ul></div>`;
   el.innerHTML = html;
+  drawRace();
   if (R && R.history.length > 1 && window.LightweightCharts) {
     const c = LightweightCharts.createChart($("#recchart"), {autoSize: true, localization: {priceFormatter: v => "₹" + n(v, 0)}, layout: {background: {type: "solid", color: "#fff"}, textColor: "#121620"},
       grid: {vertLines: {color: "#eef1f6"}, horzLines: {color: "#eef1f6"}}, rightPriceScale: {borderColor: "#e3e7ef"}, timeScale: {borderColor: "#e3e7ef"}});
@@ -1025,8 +1096,8 @@ function renderPortfolio() {
 (async () => {
   try { META = await J("data/meta.json"); } catch (e) {
     $("#t-scan").innerHTML = `<div class="panel empty">No data yet. Run <code>python main.py --build-site</code> (or wait for the daily GitHub run).</div>`; detectLocal(); return; }
-  const [scan, an, ev, bt, mk, pf] = await Promise.allSettled([J("data/scan.json"), J("data/analysis.json"), J("data/evidence.json"), J("data/backtest.json"), J("data/market.json"), J("data/portfolio.json")]);
-  SCAN = scan.value || null; ANALYSIS = an.value || {}; EVID = ev.value || {}; BT = bt.value || {}; MARKET = mk.value || null; PORT = pf.value || null;
+  const [scan, an, ev, bt, mk, pf, sc] = await Promise.allSettled([J("data/scan.json"), J("data/analysis.json"), J("data/evidence.json"), J("data/backtest.json"), J("data/market.json"), J("data/portfolio.json"), J("data/scorecard.json")]);
+  SCAN = scan.value || null; ANALYSIS = an.value || {}; EVID = ev.value || {}; BT = bt.value || {}; MARKET = mk.value || null; PORT = pf.value || null; SCORE = sc.value || null;
   renderChips(); renderMast();
   $("#foot").innerHTML = `${(META.problems || []).length ? `<b>Data notes:</b> ${esc(META.problems.join(" · "))}<br>` : ""}
     Built ${esc(META.generated_ist || "")}. Prices: Yahoo Finance (end of day). Events: NSE, Yahoo. Built automatically after the NSE close. For information and research, not investment advice.`;

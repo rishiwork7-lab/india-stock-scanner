@@ -8,10 +8,10 @@ on:
   workflow_dispatch:           # "Run workflow" button on the Actions tab: rebuild now
   push:
     branches: [main]           # a code change goes live straight away
-    paths-ignore: ['**.md', 'research/**', 'tests/**']
+    paths-ignore: ['**.md', 'research/**', 'tests/**', 'records/**']
 
 permissions:
-  contents: read
+  contents: write              # the run commits the signal diary and plan records (records/)
   pages: write
   id-token: write
 
@@ -25,6 +25,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -41,6 +43,7 @@ jobs:
           STOCK_LIST: ${{ vars.STOCK_LIST || 'RELIANCE,TCS,HDFCBANK,INFY' }}
           TRADING_STYLE: ${{ vars.TRADING_STYLE || 'swing' }}
           SITE_URL: https://rishiwork7-lab.github.io/india-stock-scanner
+          SAVE_RECORDS: '1'
           CAPITAL: ${{ vars.CAPITAL || '100000' }}
           RISK_PER_TRADE_PCT: ${{ vars.RISK_PER_TRADE_PCT || '1.0' }}
           LLM_PROVIDER_ORDER: ${{ vars.LLM_PROVIDER_ORDER || 'openai,anthropic,gemini' }}
@@ -51,6 +54,17 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TAVILY_API_KEYS: ${{ secrets.TAVILY_API_KEYS }}
         run: python main.py --build-site
+      # keep the diary and paper records for good (a push made with GITHUB_TOKEN does not start another run)
+      - name: Save the signal diary and plan records
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add records
+          if git diff --cached --quiet; then echo "nothing new to save"; exit 0; fi
+          git commit -q -m "Records for $(date -u +%F)"
+          for i in 1 2 3; do git pull -q --rebase origin main && git push -q origin HEAD:main && exit 0; sleep 10; done
+          exit 1
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

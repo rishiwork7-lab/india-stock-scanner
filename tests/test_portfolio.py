@@ -69,3 +69,56 @@ def test_held_stock_kept_while_in_top_ten():
     s["stocks"].append(stock("NEW", 200, "Chemicals"))                       # a stronger stock appears
     dec = pf.step(copy.deepcopy(st), s)
     assert {"AAA", "CCC", "DDD"} <= set(dec["holdings"]) and "NEW" not in dec["holdings"]
+
+
+# ---- challengers and the promotion rule --------------------------------------------------------------------------------
+def with_sectors(s):
+    s["etfs"] += [{"code": c, "name": c, "price": 50.0, "tracks": c} for c in ("BANKX", "ITX", "PHX", "AUTX")]
+    s["sectors"] = [{"code": "BANKX", "rank": 1, "momentum": 9.0, "above_ma200": True}, {"code": "ITX", "rank": 2, "momentum": 7.0, "above_ma200": False},
+                    {"code": "PHX", "rank": 3, "momentum": 5.0, "above_ma200": True}, {"code": "AUTX", "rank": 4, "momentum": 3.0, "above_ma200": True}]
+    return s
+
+
+def test_each_challenger_changes_one_thing():
+    s = with_sectors(scan())
+    w = lambda sp: {t["code"]: round(t["weight"], 4) for t in pf.targets(s, spec=pf.BY_ID[sp])}  # noqa: E731
+    assert w("C1") == {"NIFTYBEES": 0.5, "AAA": 0.1667, "CCC": 0.1667, "DDD": 0.1667}
+    assert w("C2") == {"NIFTYBEES": 0.4, "GOLDBEES": 0.1, "BANKX": 0.1667, "PHX": 0.1667, "AUTX": 0.1667}   # ITX below its 200-day average
+    for x in s["stocks"]:
+        x["swing"]["atr_pct"] = {"AAA": 4.5, "CCC": 2.0, "DDD": 3.0, "III": 1.0}.get(x["code"], x["swing"]["atr_pct"])
+    assert list(w("C3"))[2:] == ["III", "CCC", "BBB"]          # calmest first; BBB ties DDD on range, wins on strength, takes the bank slot
+    c4 = w("C4")
+    assert sum(1 for k in c4 if k not in ("NIFTYBEES", "GOLDBEES")) == 4 and abs(c4["AAA"] - 0.0833) < 1e-3   # only 4 pass; 2 slots in cash
+
+
+def record(values, start="2025-01-01", step_days=30):
+    import datetime as dt
+    d0 = dt.date.fromisoformat(start)
+    return {"history": [{"date": (d0 + dt.timedelta(days=i * step_days)).isoformat(), "value": v, "bench": v} for i, v in enumerate(values)]}
+
+
+def test_promotion_needs_a_year_a_clear_gain_both_halves_and_no_deeper_fall():
+    champ = record([100 + i for i in range(14)])                        # ~13 months, +13%
+    better = record([100 + 2 * i for i in range(14)])                   # +26%, ahead in both halves
+    states = {"P1": champ, "C1": better}
+    sw = pf.promotion_check(states, "P1", "2026-02-01")
+    assert sw["to"] == "C1" and sw["gain_pts"] >= 2
+    assert pf.promotion_check({"P1": record([100 + i for i in range(6)]), "C1": record([100 + 3 * i for i in range(6)])}, "P1", "x") is None  # too short
+    lucky = record([100] * 7 + [100 + 4 * i for i in range(1, 8)])     # all the gain in the second half
+    assert pf.promotion_check({"P1": champ, "C1": lucky}, "P1", "x") is None
+    crashy = record([100 + 2 * i for i in range(7)] + [80] + [100 + 3 * i for i in range(7, 13)])
+    assert pf.promotion_check({"P1": champ, "C1": crashy}, "P1", "x") is None           # fell 20% vs 0%
+
+
+def test_build_plans_restores_old_and_new_formats(tmp_path):
+    from src.site_builder import build_plans
+    s = with_sectors(scan())
+    first = build_plans(s, tmp_path / "a", lambda: None)
+    assert first["champion"] == "P1" and set(first["plans"]) == {sp.id for sp in pf.SPECS}
+    s2 = with_sectors(scan(date="2026-11-16"))
+    old = build_plans(s2, tmp_path / "b", lambda: {"state": first["plans"]["P1"]["state"]})          # format before challengers
+    assert old["plans"]["P1"]["record"]["start"] == "2026-11-13" and old["plans"]["C1"]["record"]["start"] == "2026-11-16"
+    new = build_plans(s2, tmp_path / "c", lambda: first)
+    assert all(v["record"]["start"] == "2026-11-13" for v in new["plans"].values()) and new["plans"]["C2"]["record"]["sessions"] == 2
+    again = build_plans(s2, tmp_path / "c", lambda: 1 / 0)                                            # saved files win, no fetch
+    assert again["plans"]["P1"]["record"]["sessions"] == 2

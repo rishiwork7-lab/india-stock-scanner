@@ -8,7 +8,9 @@
   site/data/analysis.json         full analysis of the watchlist (STOCK_LIST), swing and short-term styles
   site/data/evidence.json         historical checks (tools/swing_check.py, tools/swing_metrics.py)
   site/data/backtest.json         how past stored calls turned out (src/backtest.py)
-  site/data/portfolio.json        today's 5 picks for ₹1 lakh and the paper record that follows them (src/portfolio.py)
+  site/data/portfolio.json        today's ₹1 lakh plan, its paper record and the challengers' records (src/portfolio.py)
+  site/data/scorecard.json        how each kind of signal in the diary did afterwards (src/journal.py, src/scorecard.py)
+  records/                        signal diary and plan records; committed by the daily GitHub run (SAVE_RECORDS=1)
 Run: python main.py --build-site   (the GitHub workflow runs this every trading day after the close)
 """
 from __future__ import annotations
@@ -23,7 +25,8 @@ from typing import Callable, Dict, List, Optional
 import pandas as pd
 
 from .delivery import analyze_delivery
-from . import portfolio as pf
+from . import journal, portfolio as pf
+from .scorecard import scorecard
 from .events import EventService
 from .india.market import now_ist
 from .india.symbols import parse_list, parse_symbol
@@ -55,32 +58,72 @@ def _dump(path: Path, obj) -> None:
     path.write_text(json.dumps(obj, default=str, separators=(",", ":")), encoding="utf-8")
 
 
-def _previous_state() -> Optional[Dict]:
-    """The paper record as last published, used when the local copy is gone (GitHub's cache expires after 7 idle days)."""
+def _previous_published() -> Optional[Dict]:
+    """portfolio.json as last published: the fallback when the saved records are missing."""
     url = os.environ.get("SITE_URL", "").rstrip("/")
     if not url:
         return None
     import requests
     r = requests.get(f"{url}/data/portfolio.json", timeout=20)
-    return r.json().get("state") if r.status_code == 200 else None
+    return r.json() if r.status_code == 200 else None
 
 
-def build_portfolio(scan: Dict, state_file: Path, previous: Callable[[], Optional[Dict]], log: Callable[[str], None] = logger.info) -> Dict:
-    state = None
-    if state_file.exists():
-        state = json.loads(state_file.read_text())
-    else:
-        try:
-            state = previous()
-            if state:
-                log("model portfolio: restored the paper record from the published site")
-        except Exception as e:
-            log(f"model portfolio: no earlier record ({e}); starting a new one")
-    state = pf.step(state, scan)
-    state_file.parent.mkdir(parents=True, exist_ok=True)
-    state_file.write_text(json.dumps(state, default=str))
-    return {"plan": pf.plan(scan), "record": pf.report(state, scan), "state": state,
-            "rules": {"core": pf.CORE, "cushion": pf.CUSHION, "stock_slots": pf.STOCK_SLOTS, "stock_weight_pct": round(pf.STOCK_WEIGHT * 100, 1),
+def records_dir(base: Path) -> Path:
+    """records/ in the repository when the daily GitHub run saves them (SAVE_RECORDS=1), otherwise under data/ (local runs)."""
+    return ROOT / "records" if os.environ.get("SAVE_RECORDS") == "1" else Path(base) / "records"
+
+
+def build_plans(scan: Dict, rec: Path, previous: Callable[[], Optional[Dict]], log: Callable[[str], None] = logger.info,
+                legacy_state: Optional[Path] = None) -> Dict:
+    """Advance the champion and every challenger (src/portfolio.py SPECS), apply the promotion rule once a month, and
+    return what the page shows."""
+    pdir = Path(rec) / "plans"
+    pdir.mkdir(parents=True, exist_ok=True)
+    champ_file = pdir / "champion.json"
+    champ = json.loads(champ_file.read_text()) if champ_file.exists() else None
+    states = {sp.id: json.loads((pdir / f"{sp.id}.json").read_text()) for sp in pf.SPECS if (pdir / f"{sp.id}.json").exists()}
+    if not states:
+        old = None
+        if legacy_state and Path(legacy_state).exists():
+            states["P1"] = json.loads(Path(legacy_state).read_text())
+            log("plans: P1 record taken from the earlier data/portfolio/state.json")
+        else:
+            try:
+                old = previous()
+            except Exception as e:
+                log(f"plans: no earlier record ({e}); starting new ones")
+            if old:
+                if old.get("plans"):
+                    states = {k: v["state"] for k, v in old["plans"].items() if v.get("state")}
+                    champ = old.get("champion_info") or champ
+                elif old.get("state"):
+                    states["P1"] = old["state"]
+                log(f"plans: restored {', '.join(states)} from the published site")
+    champ = champ or {"champion": "P1", "switches": [], "last_check": None}
+    for sp in pf.SPECS:
+        states[sp.id] = pf.step(states.get(sp.id), scan, sp)
+        (pdir / f"{sp.id}.json").write_text(json.dumps(states[sp.id], default=str))
+    month = scan["date"][:7]
+    if champ.get("last_check") != month:
+        sw = pf.promotion_check(states, champ["champion"], scan["date"])
+        if sw:
+            log(f"plans: {sw['to']} replaces {sw['from']} as the plan shown ({sw['gain_pts']:+.1f} points a year)")
+            champ["switches"].append(sw)
+            champ["champion"] = sw["to"]
+        champ["last_check"] = month
+    champ_file.write_text(json.dumps(champ, default=str))
+    cid = champ["champion"]
+    spec = pf.BY_ID[cid]
+    plans = {}
+    for sp in pf.SPECS:
+        st = states[sp.id]
+        plans[sp.id] = {"spec": {**pf.asdict(sp), "slot_weight_pct": round(sp.slot_weight * 100, 1)}, "record": pf.report(st, scan), "state": st,
+                        "vs_champion": None if sp.id == cid else pf.compare(st, states[cid]),
+                        "today": [{"code": h["code"], "weight_pct": round(h["weight"] * 100, 1)} for h in pf.targets(scan, spec=sp)]}
+    return {"champion": cid, "champion_info": champ, "plan": pf.plan(scan, spec=spec), "record": plans[cid]["record"], "plans": plans,
+            "promotion_rule": pf.PROMOTE,
+            "rules": {"core": {"code": "NIFTYBEES", "weight": spec.core}, "cushion": {"code": "GOLDBEES", "weight": spec.gold}, "stock_slots": spec.slots,
+                      "stock_weight_pct": round(spec.slot_weight * 100, 1), "picks": spec.picks,
                       "min_traded_value_cr": pf.MIN_TV_CR, "max_atr_pct": pf.MAX_ATR_PCT, "results_block_sessions": pf.RESULTS_BLOCK,
                       "keep_rank": pf.KEEP_RANK, "cost_pct": {k: v * 100 for k, v in pf.COST.items()}}}
 
@@ -101,7 +144,10 @@ def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
         problems.append(f"index lists from a stored copy (NSE unavailable): {', '.join(uni['stale_lists'][:5])}"
                         + ("…" if len(uni["stale_lists"]) > 5 else ""))
     log(f"scanner: {len(members)} Nifty 500 stocks + {len(ETFS)} ETFs")
-    prices = downloader([m["symbol"] for m in members] + [e.symbol for e in ETFS] + [INDEX])
+    rec = records_dir(base)
+    member_codes = {m["symbol"] for m in members}
+    gone = [c for c in journal.recent_symbols(rec) if c not in member_codes and c not in {e.symbol for e in ETFS}]   # left the Nifty 500
+    prices = downloader([m["symbol"] for m in members] + [e.symbol for e in ETFS] + [INDEX] + gone)
     if INDEX not in prices:
         problems.append("NIFTY 50 index prices missing: relative strength not computed")
     nse = app.fetcher.nse_api if cfg.nse_enabled else None
@@ -130,7 +176,7 @@ def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
         problems.append("NSE event calendar unavailable: results dates are Yahoo estimates")
     _dump(data_dir / "scan.json", scan)
     try:
-        _dump(data_dir / "portfolio.json", build_portfolio(scan, base / "portfolio" / "state.json", portfolio_prev or _previous_state, log))
+        _dump(data_dir / "portfolio.json", build_plans(scan, rec, portfolio_prev or _previous_published, log, legacy_state=base / "portfolio" / "state.json"))
     except Exception as e:                                                       # never stop the site for the paper record
         logger.exception("portfolio")
         problems.append(f"model portfolio failed: {e}")
@@ -150,6 +196,22 @@ def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
             _dump(data_dir / "market.json", market)
         except Exception as e:
             problems.append(f"market review failed: {e}")
+
+    # signal diary (one row per stock/ETF per day, saved for good) and the live scorecard built from it
+    try:
+        mood = (market or {}).get("mood") or {}
+        idx = prices.get(INDEX)
+        above = None
+        if idx is not None and len(idx) >= 200:
+            above = bool(idx["close"].iloc[-1] > idx["close"].tail(200).mean())
+        light = "".join(ch for ch in str(mood.get("light") or "") if ch.isascii()).strip() or None
+        f = journal.save(rec, journal.rows_from_scan(scan, mood.get("score"), light, above))
+        log(f"signal diary: {f}")
+        diary = journal.load(rec)
+        _dump(data_dir / "scorecard.json", scorecard(diary, prices))
+    except Exception as e:
+        logger.exception("diary")
+        problems.append(f"signal diary / scorecard failed: {e}")
 
     if analysis:
         targets, _bad = parse_list(cfg.stock_list)

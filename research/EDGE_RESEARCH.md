@@ -120,3 +120,36 @@ Results are written to `evidence/edge_*.json` and shown on the website's Evidenc
 - **Verdict after 12 months:** it counts as working only if it beats the yardstick after charges with a worst fall no
   more than 5 points deeper. Before 12 months, the record is information, not proof.
 - **Rules are frozen:** any change starts a new version (P2) with a fresh record; P1's record is kept.
+
+## L1. The learning loop: signal diary, live scorecard, challenger plans (written 2026-11-17, before the first run)
+
+**Signal diary (`src/journal.py`, saved in `records/signals/<date>.csv.gz` and committed to git by the daily run).**
+Every build saves one row per Nifty 500 stock and ETF with the day's signals and numbers: swing and short-term signal
+and score, setup, stop and targets, 1/3/6/12-month and 12-1 returns, relative strength, ATR %, distance from the 52-week
+high, up/down volume, traded value, sessions to results, plus the market mood and whether the Nifty 50 is above its
+200-day average. Rows are never edited. Stocks that later leave the Nifty 500 stay in the diary, and their prices keep
+being downloaded, so the scorecard has no survivorship bias.
+
+**Live scorecard (`src/scorecard.py`, Evidence tab).** For each diary day and each row: return from the next session's
+open to the close 5, 20 and 60 sessions later, minus 0.30% (stocks) or 0.15% (ETFs), and that minus the same day's
+average stock. Groups: swing signal, short-term band, swing setup, momentum fifth (12-1 return), market mood (risk-on /
+neutral / risk-off), and Nifty 50 above or below its 200-day average. Each date's group average first, then the mean
+and t over dates. A group is labelled "too early" below 20 matured dates, and "holding up" only when t ≥ 2 and both
+halves agree. It describes; it changes nothing by itself.
+
+**Challenger plans.** Each changes exactly one thing in P1 and runs its own ₹1 lakh paper record from the same day:
+- **C1 No gold:** gold's 10% goes to NIFTYBEES (50% core).
+- **C2 Sector ETFs:** the three stock slots hold the top three sector ETFs of the site's sector ranking (above their
+  200-day average) instead of stocks.
+- **C3 Calmer stocks:** among stocks that pass P1's checks, the lowest ATR % wins instead of the highest 12-1 return.
+- **C4 Six stocks:** 6 × 8.33% instead of 3 × 16.7%.
+
+**Promotion rule (automatic, checked at each monthly rebalance).** A challenger becomes the plan shown on the site when
+all of these hold: at least 12 months of record; annual return at least 2 points above the current champion's after
+charges; worst fall no more than 3 points deeper; and ahead of the champion in both halves of the shared record. Only
+one switch per month. Every switch is logged on the page with the numbers. The old champion keeps running as a
+challenger. New challengers can be added later (C5…), each starting its own fresh record; existing rules never change.
+
+**L1 amendment (2026-11-18, before the diary's first real day):** daily signals held 5/20/60 sessions overlap, so the
+scorecard's t uses a Newey-West correction with lag N−1, and a horizon is "too early" below max(20, 2 × N) matured days
+(20, 40 and 120). Found while checking the page layout with made-up rows, not from any result.

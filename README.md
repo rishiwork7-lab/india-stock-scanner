@@ -11,12 +11,12 @@ analysis rules are in `PLAN.md`.
 | Tab | What it shows |
 |---|---|
 | **Scanner** | Pick a list: Nifty 50, Next 50, 100, 200, 500, LargeMidcap 250, Midcap 50/100/150, Smallcap 100/250, 15 sectors (Bank, IT, Pharma, Auto, FMCG, Metal, Realty, Energy…) or 10 themes (PSE, Defence, Consumption, Digital…). All Nifty 500 stocks are scanned every day; sector lists show their Nifty 500 members. Each stock gets the swing plan (score, Buy/Watch/Avoid, setup, entry/stop/targets, size) and the short-term score; sortable; filters for Buy only and "results inside the hold"; click a stock for the chart, both plans and its events |
-| **₹1 lakh plan** (`#portfolio`) | Five holdings for ₹1,00,000 with the share of money, rupees and whole shares for each: 40% Nifty 50 ETF, 10% gold ETF, three Nifty 500 stocks that pass every check (rules: `src/portfolio.py`, research P1). Below it, a paper record that follows the plan from its first build (monthly rebalance, charges paid) against simply holding the Nifty 50 ETF |
+| **₹1 lakh plan** (`#portfolio`) | Five holdings for ₹1,00,000 with the share of money, rupees and whole shares for each: 40% Nifty 50 ETF, 10% gold ETF, three Nifty 500 stocks that pass every check (rules: `src/portfolio.py`, research P1). Below it, a paper record that follows the plan from its first build (monthly rebalance, charges paid) against simply holding the Nifty 50 ETF, and **plans racing each other**: four challengers (no gold, sector ETFs, calmer stocks, six stocks) with their own records; one takes over only under the fixed promotion rule (research L1) |
 | **ETFs** | 24 liquid NSE ETFs in five groups (broad market, sector, factor, global, commodity): returns, trend, swing signal, ₹ traded a day, premium/discount to NAV; sector strength ranking (descriptive, not a tested rotation rule) |
 | **Events** | Coming results (confirmed by NSE, or Yahoo's estimate), dividends/splits, market holidays; how much each stock has moved on its last 8 results compared with a normal 2-day move |
 | **Market** | India market review (indices, breadth, FII/DII, sectors, news) |
 | **Watchlist (AI)** | Full Decision Dashboard for `STOCK_LIST`, swing and short-term (AI when a key is set, otherwise technical) |
-| **Evidence** | Historical checks of the swing score and the accuracy matrix; the live record of past calls |
+| **Evidence** | Historical checks of the swing score and the accuracy matrix; the live record of past calls | Top: the **live scorecard** from the signal diary (how each kind of signal did 5/20/60 sessions later vs the average stock, no survivorship bias)
 
 **Your own AI key, on the page.** Click **🔑 Add your AI key** at the top. Pick OpenAI, Anthropic (Claude), Google Gemini or
 any OpenAI-compatible provider (OpenRouter, DeepSeek, Groq...), paste the key and press **Load models** to test it. Then
@@ -112,6 +112,12 @@ Fridays (Dec 2022 – Sep 2026), today's Nifty 500 members, 4-week hold after 0.
 - **A random walk** reaches a 2R target before a 1R stop about 33% of the time, so the Buy plans perform like a coin flip.
 
 Use swing Buy as a disciplined plan (setup, stop, size), not as a prediction.
+
+## The learning loop (research L1)
+
+- **Signal diary** (`src/journal.py`): every daily build saves one row per Nifty 500 stock and ETF (signals, scores, setup, levels, momentum, results timing, market mood) to `records/signals/<date>.csv.gz`. The GitHub run commits it, so it is kept for good, and stocks that later leave the Nifty 500 stay in.
+- **Live scorecard** (`src/scorecard.py`): what each kind of signal did afterwards, after charges, against the average stock that day; t-values allow for overlapping holds.
+- **Challenger plans** (`src/portfolio.py` `SPECS`): each changes one thing in the ₹1 lakh plan; records in `records/plans/`. The plan shown switches only under the fixed promotion rule (12 months, +2 points a year, worst fall no more than 3 points deeper, ahead in both halves).
 
 ## Edge research (pre-registered: `research/EDGE_RESEARCH.md`)
 
