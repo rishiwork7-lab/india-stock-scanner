@@ -68,3 +68,13 @@ def test_lagging_tickers_are_downloaded_again():
         return {s: px(100, 0.01, n=10) for s in syms}
     out = refetch_lagging(first, dl, lambda m: None)
     assert calls == [["B"]] and len(out["B"]) == 10 and len(out["^NSEI"]) == 8
+
+
+def test_unfinished_session_is_dropped_before_4pm_ist():
+    import datetime as dt
+    from src.site_builder import drop_unfinished
+    prices = {"A": px(100, 0, n=5, first="2026-11-12")}                          # 12, 13, 16, 17, 18 Nov
+    morning = drop_unfinished({k: v.copy() for k, v in prices.items()}, dt.datetime(2026, 11, 18, 10, 48), lambda m: None)
+    assert str(morning["A"]["date"].iloc[-1].date()) == "2026-11-17"
+    evening = drop_unfinished({k: v.copy() for k, v in prices.items()}, dt.datetime(2026, 11, 18, 18, 30), lambda m: None)
+    assert str(evening["A"]["date"].iloc[-1].date()) == "2026-11-18"

@@ -168,6 +168,22 @@ def refetch_lagging(prices: Dict[str, pd.DataFrame], downloader: Callable, log: 
     return prices
 
 
+def drop_unfinished(prices: Dict[str, pd.DataFrame], now, log: Callable[[str], None] = logger.info, ready=(16, 0)) -> Dict[str, pd.DataFrame]:
+    """Before 16:00 IST, Yahoo's bar for today is the live, unfinished session. A build then (e.g. after a code push)
+    must use yesterday's close, or the diary and paper records would store mid-day prices as a close."""
+    if (now.hour, now.minute) >= ready:
+        return prices
+    today = pd.Timestamp(now.date())
+    cut = 0
+    for s, df in prices.items():
+        if df is not None and len(df) and pd.Timestamp(df["date"].iloc[-1]).normalize() >= today:
+            prices[s] = df[pd.to_datetime(df["date"]).dt.normalize() < today].reset_index(drop=True)
+            cut += 1
+    if cut:
+        log(f"prices: market day not finished ({now:%H:%M} IST); using the previous close for {cut} tickers")
+    return prices
+
+
 def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
                downloader: Callable = download_prices, log: Callable[[str], None] = logger.info,
                event_yahoo: Optional[Callable] = None, portfolio_prev: Optional[Callable] = None) -> Dict:
@@ -189,6 +205,7 @@ def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
     gone = [c for c in journal.recent_symbols(rec) if c not in member_codes and c not in {e.symbol for e in ETFS}]   # left the Nifty 500
     prices = downloader([m["symbol"] for m in members] + [e.symbol for e in ETFS] + [INDEX] + gone)
     prices = refetch_lagging(prices, downloader, log)
+    prices = drop_unfinished(prices, now_ist(), log)
     if INDEX not in prices:
         problems.append("NIFTY 50 index prices missing: relative strength not computed")
     nse = app.fetcher.nse_api if cfg.nse_enabled else None
