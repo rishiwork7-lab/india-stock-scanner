@@ -54,3 +54,15 @@ def test_scorecard_groups_and_too_early_label():
     assert "Swing Buy when the market mood is risk-on" in sc["horizons"]["5"]
     g = groups(outcomes(diary.head(3), {}))
     assert g["12-month strength, fifth 5 (strongest)"].sum() == 1
+
+
+def test_lagging_tickers_are_downloaded_again():
+    from src.site_builder import refetch_lagging
+    first = {"A": px(100, 0, n=10), "B": px(100, 0, n=9), "C": px(100, 0, n=10), "^NSEI": px(100, 0, n=8)}
+    calls = []
+
+    def dl(syms):
+        calls.append(list(syms))
+        return {s: px(100, 0.01, n=10) for s in syms}
+    out = refetch_lagging(first, dl, lambda m: None)
+    assert calls == [["B"]] and len(out["B"]) == 10 and len(out["^NSEI"]) == 8

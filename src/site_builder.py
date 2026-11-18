@@ -128,6 +128,30 @@ def build_plans(scan: Dict, rec: Path, previous: Callable[[], Optional[Dict]], l
                       "keep_rank": pf.KEEP_RANK, "cost_pct": {k: v * 100 for k, v in pf.COST.items()}}}
 
 
+def refetch_lagging(prices: Dict[str, pd.DataFrame], downloader: Callable, log: Callable[[str], None] = logger.info,
+                    tries: int = 2) -> Dict[str, pd.DataFrame]:
+    """Yahoo's batch download sometimes returns the latest session for only part of the list (seen 2026-11-18: 181 of 521
+    a day behind). Download the lagging ones again, up to `tries` times; keep whichever copy is newer."""
+    last = {s: pd.Timestamp(df["date"].iloc[-1]) for s, df in prices.items() if df is not None and len(df)}
+    if not last:
+        return prices
+    latest = pd.Series(list(last.values())).mode().max()
+    for i in range(tries):
+        behind = [s for s, d in last.items() if d < latest and not s.startswith("^")]
+        if not behind:
+            break
+        log(f"prices: {len(behind)} tickers a day or more behind {latest.date()}; downloading them again ({i + 1}/{tries})")
+        try:
+            again = downloader(behind)
+        except Exception as e:
+            log(f"prices: second download failed ({e})")
+            break
+        for s, df in again.items():
+            if df is not None and len(df) and pd.Timestamp(df["date"].iloc[-1]) > last.get(s, pd.Timestamp.min):
+                prices[s], last[s] = df, pd.Timestamp(df["date"].iloc[-1])
+    return prices
+
+
 def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
                downloader: Callable = download_prices, log: Callable[[str], None] = logger.info,
                event_yahoo: Optional[Callable] = None, portfolio_prev: Optional[Callable] = None) -> Dict:
@@ -148,6 +172,7 @@ def build_site(app, out_dir: Path, analysis: bool = True, review: bool = True,
     member_codes = {m["symbol"] for m in members}
     gone = [c for c in journal.recent_symbols(rec) if c not in member_codes and c not in {e.symbol for e in ETFS}]   # left the Nifty 500
     prices = downloader([m["symbol"] for m in members] + [e.symbol for e in ETFS] + [INDEX] + gone)
+    prices = refetch_lagging(prices, downloader, log)
     if INDEX not in prices:
         problems.append("NIFTY 50 index prices missing: relative strength not computed")
     nse = app.fetcher.nse_api if cfg.nse_enabled else None

@@ -254,9 +254,9 @@ class NSEApi:
         close is the matching price."""
         data = self._json("/etf")
         try:
-            nav_day = datetime.strptime(data.get("navDate", ""), "%d-%b-%Y").date()
+            nav_day = datetime.strptime(data.get("navDate") or "", "%d-%b-%Y").date()
             px_day = datetime.strptime((data.get("timestamp") or "").split(" ")[0], "%d-%b-%Y").date()
-        except ValueError:
+        except (ValueError, TypeError):                 # NSE sends navDate: null before the market opens
             nav_day = px_day = None
         out = {}
         for r in data.get("data", []):
